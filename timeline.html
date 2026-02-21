@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Project Timeline</title>
+<style>
+    :root {
+        --fs: 12px;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #fff;
+        color: #000;
+        overflow: hidden;
+        font-size: var(--fs);
+    }
+
+    #yearBadge {
+        position: absolute;
+        top: 10px;
+        left: 24px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #94a3b8;
+        z-index: 10;
+        pointer-events: none;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    #dropToast {
+        position: fixed;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        background: #1e293b;
+        color: #f0fdf4;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 20px;
+        border-radius: 20px;
+        z-index: 50;
+        opacity: 0;
+        transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+    }
+
+    #dropToast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+
+
+    /* ── Fullscreen button ── */
+    #fullscreenBtn {
+        position: fixed;
+        top: 6px;
+        right: 50px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 5px;
+        opacity: 0.35;
+        transition: opacity 0.15s;
+        z-index: 30;
+    }
+
+    #fullscreenBtn:hover { opacity: 1; }
+
+    #fullscreenBtn svg {
+        width: 18px;
+        height: 18px;
+        fill: #333;
+    }
+
+    /* ── Settings panel ── */
+    #settingsWrap {
+        position: fixed;
+        top: 6px;
+        right: 14px;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0;
+    }
+
+    #settingsHandle {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        border-radius: 5px;
+        padding: 3px;
+        opacity: 0.35;
+        transition: opacity 0.15s;
+    }
+
+    #settingsHandle:hover { opacity: 1; }
+    #settingsWrap.open #settingsHandle { opacity: 1; }
+
+    #settingsHandle span {
+        display: block;
+        width: 16px;
+        height: 2px;
+        background: #333;
+        border-radius: 1px;
+    }
+
+    #settingsPanel {
+        display: none;
+        width: 210px;
+        background: #fff;
+        color: #334155;
+        padding: 14px 14px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        border: 1px solid #e2e8f0;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 4px;
+    }
+
+    #settingsWrap.open #settingsPanel {
+        display: flex;
+    }
+
+    .setting-row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .setting-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+    }
+
+    .setting-label span {
+        color: #0f172a;
+        font-weight: normal;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: #cbd5e1;
+        outline: none;
+        cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        box-shadow: 0 1px 4px rgba(59,130,246,0.4);
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+        background: #2563eb;
+    }
+
+    /* ── Timeline ── */
+    #timelineWrapper {
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-x: hidden;
+    }
+
+    #timeline {
+        position: relative;
+        height: 100%;
+        will-change: transform;
+    }
+
+    .dateAxis {
+        position: relative;
+        height: 40px;
+        border-bottom: 2px solid #94a3b8;
+        overflow: hidden;
+    }
+
+    /* Week box: one per week, left border = Monday */
+    .weekBox {
+        position: absolute;
+        top: 0;
+        height: 40px;
+        border-left: 1px solid #ccc;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-left: 5px;
+        user-select: none;
+        overflow: hidden;
+        background: #f8f9fa;
+    }
+
+    .weekBox.alt {
+        background: #f1f3f5;
+    }
+
+    .weekBoxDate {
+        font-size: 13px;
+        font-weight: 500;
+        color: #444;
+        white-space: nowrap;
+        line-height: 1.25;
+    }
+
+    .weekBoxNum {
+        font-size: 13px;
+        font-weight: 600;
+        color: #bbb;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+
+    .lane { position: absolute; }
+
+    .blockBand {
+        position: absolute;
+        opacity: 0.15;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* Grid lines */
+    .gridV {
+        position: absolute;
+        top: 0;
+        width: 1px;
+        background: #f0f0f0;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .gridH {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #f0f0f0;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .bar {
+        position: absolute;
+        height: 26px;
+        border-radius: 5px;
+        background: #3b82f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .bar.clickable {
+        cursor: pointer;
+    }
+
+    .bar.clickable:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .barDays {
+        color: white;
+        font-weight: bold;
+        white-space: nowrap;
+        padding: 0 6px;
+        pointer-events: none;
+    }
+
+    .milestoneWrap {
+        position: absolute;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        transition: transform 0.15s;
+        z-index: 5;  /* Well above grid lines (z-index: 0) */
+    }
+
+    .milestoneWrap.clickable {
+        cursor: pointer;
+    }
+
+    .milestoneWrap.clickable:hover {
+        transform: translateY(-2px);
+    }
+
+    .milestoneWrap.clickable:hover .diamond {
+        box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    }
+
+    .msText {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+    }
+
+    .msTitle {
+        font-size: var(--fs);   /* follows font setting */
+        font-weight: normal;
+        white-space: nowrap;
+        line-height: 1.2;
+        color: #1e293b;
+    }
+
+    .diamond {
+        width: 18px;
+        height: 18px;
+        background: var(--dc, #f59e0b);
+        transform: rotate(45deg);
+        flex-shrink: 0;
+    }
+
+    .otherIcon {
+        width: 16px;
+        height: 16px;
+        background: #10b981;
+        border-radius: 50%;
+        margin-bottom: 5px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+    }
+
+    .daysLeft {
+        font-weight: bold;
+        white-space: nowrap;
+    }
+
+    .daysLeft.project { color: #b45309; }
+    .daysLeft.other   { color: #065f46; }
+    .daysLeft.past    { color: #aaa; }
+
+    .label {
+        position: absolute;
+        white-space: nowrap;
+    }
+
+    /* ── Today line ── */
+    #todayLine {
+        position: fixed;
+        top: 40px;
+        width: 1px;
+        height: calc(100% - 40px);
+        background: #ef4444;
+        z-index: 5;
+        pointer-events: none;
+    }
+
+    #todayPin {
+        position: fixed;
+        top: 40px;
+        transform: translateX(-50%);
+        z-index: 6;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #todayChip {
+        background: #ef4444;
+        color: white;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 3px 10px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        text-align: center;
+        line-height: 1.5;
+    }
+
+    #todayTriangle {
+        width: 0; height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #ef4444;
+    }
+
+    /* ── Activity box ── */
+    #activityBox {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #78350f;
+        font-size: var(--fs);
+        padding: 12px 18px;
+        border-radius: 12px;
+        z-index: 20;
+        pointer-events: none;
+        display: none;
+        text-align: left;
+        line-height: 1.7;
+        box-shadow: 0 2px 12px rgba(245, 158, 11, 0.15), 0 1px 3px rgba(0,0,0,0.1);
+        max-width: 320px;
+        border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    #activityBox .act-row { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    #activityBox .act-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+
+    #snapHint {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.55);
+        color: #fff;
+        font-size: 12px;
+        padding: 5px 14px;
+        border-radius: 20px;
+        z-index: 25;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        white-space: nowrap;
+    }
+</style>
+</head>
+<body>
+
+<div id="yearBadge"></div>
+<div id="dropToast">✓ Updated</div>
+
+<!-- Fullscreen button -->
+<div id="fullscreenBtn" onclick="toggleFullscreen()" title="Fullscreen (ESC to exit)">
+    <svg viewBox="0 0 24 24">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+    </svg>
+</div>
+
+
+<!-- Settings -->
+<div id="settingsWrap">
+    <div id="settingsHandle" onclick="toggleSettings()">
+        <span></span><span></span><span></span>
+    </div>
+    <div id="settingsPanel">
+        <div class="setting-row">
+            <div class="setting-label">Zoom <span id="zoomVal">20 px/day</span></div>
+            <input type="range" id="slZoom" min="6" max="60" value="20" oninput="onZoom(this.value)">
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Row spacing <span id="rowVal">70 px</span></div>
+            <input type="range" id="slRow" min="40" max="160" value="70" oninput="onRow(this.value)">
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Font size <span id="fsVal">14 px</span></div>
+            <input type="range" id="slFs" min="14" max="25" value="14" oninput="onFs(this.value)">
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Event horizon <span id="noteHorizonVal">60 days</span></div>
+            <input type="range" id="slNoteHorizon" min="7" max="160" value="60" oninput="onNoteHorizon(this.value)">
+        </div>
+    </div>
+</div>
+
+<div id="todayLine"></div>
+<div id="todayPin">
+    <div id="todayChip">TODAY</div>
+    <div id="todayTriangle"></div>
+</div>
+<div id="activityBox"></div>
+<div id="snapHint">← → to scroll &nbsp;·&nbsp; any other key returns to today</div>
+
+<div id="timelineWrapper">
+    <div id="timeline">
+        <div class="dateAxis" id="dateAxis"></div>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY  = "timeline_json";
+const SETTINGS_KEY = "timeline_settings";
+
+// ── Color mapping: human-readable names → hex ──────────────────────────────────
+const COLORS = {
+    // Blues
+    lightblue: "#7dd3fc",
+    skyblue: "#38bdf8",
+    blue: "#3b82f6",
+    darkblue: "#1e40af",
+    indigo: "#6366f1",
+    
+    // Purples
+    purple: "#8b5cf6",
+    violet: "#a855f7",
+    
+    // Greens
+    green: "#10b981",
+    lightgreen: "#4ade80",
+    darkgreen: "#059669",
+    
+    // Yellows/Oranges
+    yellow: "#fbbf24",
+    orange: "#f59e0b",
+    amber: "#f97316",
+    
+    // Reds/Pinks
+    red: "#ef4444",
+    pink: "#ec4899",
+    
+    // Neutrals
+    gray: "#6b7280",
+    slate: "#64748b",
+    black: "#000000",
+    
+    // Cyans/Teals
+    cyan: "#06b6d4",
+    teal: "#14b8a6"
+};
+
+function getColor(c) {
+    if (!c) return null;
+    const lower = String(c).toLowerCase();
+    return COLORS[lower] || c;  // Return mapped color or original if not found
+}
+
+// ── Configurable settings ──────────────────────────────────────────────────────
+let pxPerDay      = 20;
+let rowSpacing    = 70;
+let fontSize      = 14;
+let noteHorizon   = 60;  // days ahead to show in activity box
+
+function loadSettings() {
+    try {
+        const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+        if (s.pxPerDay)     pxPerDay     = s.pxPerDay;
+        if (s.rowSpacing)   rowSpacing   = s.rowSpacing;
+        if (s.fontSize)     fontSize     = s.fontSize;
+        if (s.noteHorizon)  noteHorizon  = s.noteHorizon;
+    } catch(e) {}
+    syncSliders();
+}
+
+function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ 
+        pxPerDay, 
+        rowSpacing, 
+        fontSize, 
+        noteHorizon 
+    }));
+}
+
+function syncSliders() {
+    document.getElementById("slZoom").value = pxPerDay;
+    document.getElementById("slRow").value  = rowSpacing;
+    document.getElementById("slFs").value   = fontSize;
+    document.getElementById("slNoteHorizon").value = noteHorizon;
+    document.getElementById("zoomVal").textContent = pxPerDay + " px/day";
+    document.getElementById("rowVal").textContent  = rowSpacing + " px";
+    document.getElementById("fsVal").textContent   = fontSize + " px";
+    document.getElementById("noteHorizonVal").textContent = noteHorizon + " days";
+    document.documentElement.style.setProperty("--fs", fontSize + "px");
+}
+
+function onZoom(v) {
+    pxPerDay = +v;
+    document.getElementById("zoomVal").textContent = v + " px/day";
+    saveSettings();
+    buildTimeline();
+}
+
+function onRow(v) {
+    rowSpacing = +v;
+    document.getElementById("rowVal").textContent = v + " px";
+    saveSettings();
+    buildTimeline();
+}
+
+function onFs(v) {
+    fontSize = +v;
+    document.getElementById("fsVal").textContent = v + " px";
+    document.documentElement.style.setProperty("--fs", v + "px");
+    saveSettings();
+    buildTimeline();
+}
+
+function onNoteHorizon(v) {
+    noteHorizon = +v;
+    document.getElementById("noteHorizonVal").textContent = v + " days";
+    saveSettings();
+    updateActivityBox();
+}
+
+function toggleSettings() {
+    document.getElementById("settingsWrap").classList.toggle("open");
+}
+
+// ── Fullscreen ─────────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log("Fullscreen error:", err);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// Close panel when pressing any key
+document.addEventListener("keydown", () => {
+    document.getElementById("settingsWrap").classList.remove("open");
+});
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let items        = [];
+let minDate      = null;
+let boxItems     = [];
+let panOffset    = 0;
+let snapVelocity = 0;
+let rafId        = null;
+let snapAnimId   = null;
+
+const PAN_STEP       = 12;
+const SNAP_STIFFNESS = 0.14;
+const SNAP_DAMPING   = 0.75;
+const keysDown = { ArrowLeft: false, ArrowRight: false };
+
+const snapHint    = document.getElementById("snapHint");
+const tl          = document.getElementById("timeline");
+const todayChip   = document.getElementById("todayChip");
+const activityBox = document.getElementById("activityBox");
+
+// ── Auto-reload ────────────────────────────────────────────────────────────────
+// Hourly re-center: applyTransform recalculates homeOffset from new Date()
+// so the red line moves to the new day automatically
+setInterval(applyTransform, 60 * 60 * 1000);
+
+// ── Date helpers ───────────────────────────────────────────────────────────────
+function isoWeekToDate(year, week) {
+    const jan4 = new Date(year, 0, 4);
+    const mon1 = new Date(jan4);
+    mon1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    const r = new Date(mon1);
+    r.setDate(mon1.getDate() + (week - 1) * 7);
+    return r;
+}
+
+function parseDate(val) {
+    if (!val) return null;
+    const s = String(val).trim();
+    const wm = s.match(/^(\d{4})[-]?[wW](\d{1,2})$/);
+    if (wm) return isoWeekToDate(+wm[1], +wm[2]);
+    return new Date(s + "T00:00:00");
+}
+
+// DST-safe: count calendar days using UTC noon to avoid any hour offsets
+function dateToUTCNoon(d) {
+    return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+}
+function daysBetween(a, b) {
+    return (dateToUTCNoon(b) - dateToUTCNoon(a)) / 86400000;
+}
+function localDateStr(d) {
+    const y  = d.getFullYear();
+    const m  = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+}
+function todayStr() { return localDateStr(new Date()); }
+
+function centerPx() {
+    // Single source of truth for the red line x-position — always an integer
+    return Math.round(window.innerWidth / 2);
+}
+
+function homeOffset() {
+    if (!minDate) return 0;
+    return centerPx() - Math.round(daysBetween(minDate, new Date()) * pxPerDay);
+}
+
+function centerDate() {
+    // Use integer day arithmetic to avoid timezone/DST issues
+    const cx      = centerPx() - (homeOffset() + panOffset);
+    const daysOff = Math.round(cx / pxPerDay);   // integer days from minDate
+    const d = new Date(minDate);
+    d.setDate(d.getDate() + daysOff);
+    return d;
+}
+
+function isAtToday() { return Math.abs(panOffset) < pxPerDay * 0.5; }
+
+// ── UI updates ─────────────────────────────────────────────────────────────────
+function updateChip() {
+    if (!minDate) return;
+    const cs = localDateStr(centerDate());
+    todayChip.innerHTML = (cs === todayStr()) ? "TODAY<br>" + cs : cs;
+}
+
+function updateMilestoneLabels() {
+    if (!minDate) return;
+    const ref = centerDate();
+    document.querySelectorAll(".daysLeft").forEach(el => {
+        const diff = Math.round(daysBetween(ref, parseDate(el.dataset.date)));
+        if (diff < 0) {
+            el.textContent = Math.abs(diff) + " dagar sedan";
+            el.className   = "daysLeft past";
+        } else {
+            el.textContent = diff === 0 ? "Idag" : "Om " + diff + " dagar";
+            el.className   = "daysLeft " + (el.dataset.kind === "other" ? "other" : "project");
+        }
+    });
+}
+
+function updateActivityBox() {
+    if (!boxItems.length) { activityBox.style.display = "none"; return; }
+    const ref = minDate ? centerDate() : new Date();
+    const rows = boxItems
+        .map(a => ({ ...a, diff: Math.round(daysBetween(ref, parseDate(a.date))) }))
+        .filter(a => a.diff >= 0 && a.diff <= noteHorizon)  // Only future events within horizon
+        .sort((a, b) => a.diff - b.diff);
+    
+    if (rows.length === 0) { activityBox.style.display = "none"; return; }
+    
+    activityBox.innerHTML = rows.map(a => {
+        const when = a.diff === 0 ? "Idag" : "Om " + a.diff + " dagar";
+        return `<div class="act-row"><span class="act-dot" style="background:${getColor(a.color)||'#f59e0b'}"></span><span><strong>${a.activity}</strong> — ${when}</span></div>`;
+    }).join("");
+    activityBox.style.display = "block";
+}
+
+function applyTransform() {
+    const cx = centerPx();
+    tl.style.transform = `translateX(${homeOffset() + panOffset}px)`;
+    document.getElementById("todayLine").style.left = cx + "px";
+    document.getElementById("todayPin").style.left  = cx + "px";
+    updateChip();
+    updateMilestoneLabels();
+    updateActivityBox();
+
+}
+
+function showToast(msg) {
+    const t = document.getElementById("dropToast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// ── Pan / snap ─────────────────────────────────────────────────────────────────
+// panOffset is ALWAYS a multiple of pxPerDay except during fast-scroll.
+// After fast-scroll key-up we snap to nearest day boundary (not necessarily today).
+let holdTimer     = null;
+let isFastScrolling = false;
+
+function snapToDayBoundary() {
+    // Round panOffset to nearest multiple of pxPerDay — stays on current day, not today
+    panOffset = Math.round(panOffset / pxPerDay) * pxPerDay;
+}
+
+function panLoop() {
+    if (!keysDown.ArrowLeft && !keysDown.ArrowRight) { rafId = null; return; }
+    if (keysDown.ArrowRight) panOffset -= PAN_STEP;
+    if (keysDown.ArrowLeft)  panOffset += PAN_STEP;
+    // During fast scroll we allow sub-day positions for smoothness —
+    // they get corrected on key-up via snapToDayBoundary()
+    applyTransform();
+    rafId = requestAnimationFrame(panLoop);
+}
+
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        if (snapAnimId) { cancelAnimationFrame(snapAnimId); snapAnimId = null; snapVelocity = 0; }
+        if (!keysDown[e.key]) {
+            keysDown[e.key] = true;
+            isFastScrolling = false;
+            // Single press: ensure we're on a day boundary first, then step exactly 1 day
+            snapToDayBoundary();
+            panOffset += (e.key === "ArrowLeft" ? 1 : -1) * pxPerDay;
+            applyTransform();
+            // Hold > 300ms → fast continuous scroll
+            holdTimer = setTimeout(() => {
+                isFastScrolling = true;
+                if (!rafId) rafId = requestAnimationFrame(panLoop);
+            }, 300);
+        }
+    } else {
+        keysDown.ArrowLeft = keysDown.ArrowRight = false;
+        triggerSnap();
+    }
+});
+
+document.addEventListener("keyup", e => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        keysDown[e.key] = false;
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        if (isFastScrolling) {
+            // Snap to nearest day boundary after fast scroll
+            snapToDayBoundary();
+            applyTransform();
+        }
+        isFastScrolling = false;
+    }
+});
+
+document.addEventListener("dblclick", triggerSnap);
+
+function triggerSnap() {
+    if (snapAnimId) cancelAnimationFrame(snapAnimId);
+    keysDown.ArrowLeft = keysDown.ArrowRight = false;
+    snapVelocity = 0;
+    springSnap();
+}
+
+function springSnap() {
+    snapVelocity = snapVelocity * SNAP_DAMPING + (-SNAP_STIFFNESS * panOffset);
+    panOffset   += snapVelocity;
+    applyTransform();
+    if (Math.abs(panOffset) < 0.5 && Math.abs(snapVelocity) < 0.5) {
+        panOffset    = 0;
+        snapVelocity = 0;
+        applyTransform();
+        snapAnimId = null;
+        return;
+    }
+    snapAnimId = requestAnimationFrame(springSnap);
+}
+
+// ── Build ──────────────────────────────────────────────────────────────────────
+function buildTimeline() {
+    tl.innerHTML = '<div class="dateAxis" id="dateAxis"></div>';
+    const dateAxis = document.getElementById("dateAxis");
+    if (!items.length) return;
+
+    // ── Categorise ────────────────────────────────────────────────────────────
+    // Schema: activity=name, type="area"|"note"|undefined
+    // title  = {title:"..."} only → shown as header badge
+    // bar    = start+end
+    // area   = start+end, type="area"  → background band
+    // diamond= date only
+    // note   = diamond with type="note" → shown in daysuntil box
+    const titleItem = items.find(i => i.title && !i.start && !i.end && !i.date);
+    const bars     = items.filter(i => i.start && i.end && i.type !== "area");
+    const blocks   = items.filter(i => i.start && i.end && i.type === "area");
+    const diamonds = items.filter(i => i.date && !i.start);
+    boxItems       = diamonds.filter(i => i.type === "note");
+
+    // Update header badge with custom title or fall back to year
+    const yb = document.getElementById("yearBadge");
+    if (yb) yb.textContent = titleItem ? titleItem.title : new Date().getFullYear();
+
+    const allDates = [];
+    [...bars, ...blocks, ...diamonds].forEach(i => {
+        if (i.start) allDates.push(parseDate(i.start));
+        if (i.end)   allDates.push(parseDate(i.end));
+        if (i.date)  allDates.push(parseDate(i.date));
+    });
+
+    minDate = new Date(Math.min(...allDates));
+    const maxDate   = new Date(Math.max(...allDates));
+    const totalDays = daysBetween(minDate, maxDate) + 60;
+    tl.style.width  = (totalDays * pxPerDay) + "px";
+
+    // ── Week boxes ────────────────────────────────────────────────────────────
+    const weekW = 7 * pxPerDay;
+    const fm = new Date(minDate);
+    fm.setDate(fm.getDate() - ((fm.getDay() + 6) % 7));
+
+    function isoWeekNum(d) {
+        const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+        const y1 = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+        return Math.ceil((((tmp - y1) / 86400000) + 1) / 7);
+    }
+
+    const weekOffsets = [];
+    for (let d = new Date(fm); daysBetween(d, maxDate) > -7; d.setDate(d.getDate() + 7)) {
+        const offset = Math.round(daysBetween(minDate, d) * pxPerDay);
+        weekOffsets.push(offset);
+        const box = document.createElement("div");
+        box.className = "weekBox" + (weekOffsets.length % 2 === 1 ? " alt" : "");
+        box.style.left  = offset + "px";
+        box.style.width = weekW + "px";
+        dateAxis.appendChild(box);
+        const dn = document.createElement("div");
+        dn.className = "weekBoxDate";
+        const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        dn.textContent = MONTHS[d.getMonth()] + " " + d.getDate();
+        box.appendChild(dn);
+        const wEl = document.createElement("div");
+        wEl.className = "weekBoxNum";
+        wEl.textContent = "v." + isoWeekNum(d);
+        box.appendChild(wEl);
+    }
+
+    // ── Diamond snapping to bar start/end ─────────────────────────────────────
+    const barDateMap = {};
+    bars.forEach((item, index) => {
+        const ss = localDateStr(parseDate(item.start));
+        const es = localDateStr(parseDate(item.end));
+        if (barDateMap[ss] === undefined) barDateMap[ss] = index;
+        if (barDateMap[es] === undefined) barDateMap[es] = index;
+    });
+
+    const snappedMs    = {}; // barIndex -> [diamond,...]
+    const standaloneDs = []; // not matched to any bar
+
+    diamonds.forEach(item => {
+        const ds      = localDateStr(parseDate(item.date));
+        const snapIdx = barDateMap[ds];
+        if (snapIdx !== undefined) {
+            if (!snappedMs[snapIdx]) snappedMs[snapIdx] = [];
+            snappedMs[snapIdx].push(item);
+        } else {
+            standaloneDs.push(item);
+        }
+    });
+
+    // ── Layout: compute Y positions ───────────────────────────────────────────
+    const dSingleH     = Math.round(fontSize * 2.8 + 24); // 18px icon + title + daysLeft + margin
+    const diamondLaneH = dSingleH;  // Same height as standalone diamonds for consistency
+    const barTopPx     = Math.max(14, fontSize + 2);
+
+    // Standalone diamonds: collision-detect into rows at the TOP
+    // Sort by date, assign each to earliest row where text won't overlap.
+    // Estimate wrap width from title length: icon(18) + ~7px per char + 12px padding
+    standaloneDs.sort((a, b) => daysBetween(parseDate(b.date), parseDate(a.date))); // ascending by date
+
+    // Collision: estimate pixel width of each diamond+label, pack into rows
+    // Use canvas to measure text accurately
+    const _cvs = document.createElement("canvas");
+    const _ctx = _cvs.getContext("2d");
+    _ctx.font = fontSize + "px Arial";
+    function estimateW(item) {
+        const txt = (item.activity || "").replace(/\n/g, " ");
+        return Math.ceil(_ctx.measureText(txt).width) + 36; // 18px icon + 6px gap + 12px padding
+    }
+
+    const rowEnds = []; // rightmost px used per row
+    const dsRows  = []; // assigned row per item
+    standaloneDs.forEach(item => {
+        const x = Math.round(daysBetween(minDate, parseDate(item.date)) * pxPerDay);
+        const w = estimateW(item);
+        let r = 0;
+        while (r < rowEnds.length && x <= rowEnds[r] + 10) r++;
+        if (r === rowEnds.length) rowEnds.push(0);
+        rowEnds[r] = x + w;
+        dsRows.push(r);
+    });
+    const numDsRows = rowEnds.length || 0;
+
+    // Place standalone diamond section FIRST (top)
+    let cursor = 40;
+    const dRowTopY = [];
+    for (let r = 0; r < numDsRows; r++) {
+        dRowTopY.push(cursor);
+        cursor += dSingleH;
+    }
+    if (numDsRows > 0) cursor += 4; // small gap before bars
+
+    // Then bars (with optional snapped diamond lane above)
+    const slotTopY = [];
+    bars.forEach((item, index) => {
+        slotTopY.push(cursor);
+        if (snappedMs[index]) cursor += diamondLaneH;
+        cursor += rowSpacing;
+    });
+
+    const totalH = cursor + 40;
+    tl.style.height = totalH + "px";
+
+    // ── Vertical grid lines ───────────────────────────────────────────────────
+    weekOffsets.forEach(offset => {
+        const gv = document.createElement("div");
+        gv.className = "gridV";
+        gv.style.left   = offset + "px";
+        gv.style.top    = "40px";
+        gv.style.height = totalH + "px";
+        tl.appendChild(gv);
+    });
+
+    // ── Block bands (background) ──────────────────────────────────────────────
+    blocks.forEach(item => {
+        const x = Math.round(daysBetween(minDate, parseDate(item.start)) * pxPerDay);
+        const w = Math.round(daysBetween(parseDate(item.start), parseDate(item.end)) * pxPerDay);
+        const band = document.createElement("div");
+        band.className   = "blockBand";
+        band.style.left  = x + "px";
+        band.style.width = w + "px";
+        band.style.height = totalH + "px";
+        band.style.background = getColor(item.color) || "#94a3b8";
+        tl.appendChild(band);
+        // Rotated label: writing-mode so it flows naturally top→bottom
+        // Font size fills ~75% of band width, capped so text fits height
+        const fs  = Math.min(w * 0.75, totalH * 0.18, 100);
+        const lbl = document.createElement("div");
+        lbl.textContent = item.activity;
+        lbl.style.cssText = [
+            "position:absolute",
+            `left:${x}px`,
+            `width:${w}px`,
+            `top:40px`,
+            `height:${totalH - 40}px`,
+            `font-size:${Math.round(fs)}px`,
+            `color:${getColor(item.color) || "#94a3b8"}`,
+            "opacity:0.3",
+            "pointer-events:none",
+            "font-weight:900",
+            "writing-mode:vertical-rl",
+            "text-orientation:mixed",
+            "transform:rotate(180deg)",   // bottom-to-top direction
+            "display:flex",
+            "align-items:center",
+            "justify-content:center",
+            "overflow:hidden",
+            "letter-spacing:0.05em",
+        ].join(";");
+        tl.appendChild(lbl);
+    });
+
+    // ── Standalone diamond rows ─────────────────────────────────────────────
+    // Create one lane div per row, append diamonds into their lane
+    if (numDsRows > 0) {
+        const gh0 = document.createElement("div");
+        gh0.className = "gridH"; gh0.style.top = "40px";
+        tl.appendChild(gh0);
+    }
+
+    // Build one lane per row
+    const dsLanes = [];
+    for (let r = 0; r < numDsRows; r++) {
+        const gh = document.createElement("div");
+        gh.className = "gridH";
+        gh.style.top = (dRowTopY[r] + dSingleH) + "px";
+        tl.appendChild(gh);
+
+        const lane = document.createElement("div");
+        lane.className  = "lane";
+        lane.style.top  = dRowTopY[r] + "px";
+        lane.style.left = lane.style.right = "0";
+        lane.style.height = dSingleH + "px";
+        tl.appendChild(lane);
+        dsLanes.push(lane);
+    }
+
+    standaloneDs.forEach((item, i) => {
+        const rowIdx = dsRows[i];
+        const x      = Math.round(daysBetween(minDate, parseDate(item.date)) * pxPerDay);
+        const wrap   = makeDiamond(item, false);
+        wrap.style.left = (x - 9) + "px";  // center 18px diamond
+        wrap.style.top  = Math.round((dSingleH - 26) / 2) + "px";  // relative to lane, adjusted for larger diamond
+        dsLanes[rowIdx].appendChild(wrap);
+    });
+
+    // ── Bar slots ─────────────────────────────────────────────────────────────
+    bars.forEach((item, index) => {
+        const slotY       = slotTopY[index];
+        const hasDiamonds = !!(snappedMs[index] && snappedMs[index].length);
+        const barLaneY    = slotY + (hasDiamonds ? diamondLaneH : 0);
+
+        const gh = document.createElement("div");
+        gh.className = "gridH"; gh.style.top = slotY + "px";
+        tl.appendChild(gh);
+
+        // Optional diamond lane above bar
+        if (hasDiamonds) {
+            snappedMs[index].forEach(ms => {
+                const x    = Math.round(daysBetween(minDate, parseDate(ms.date)) * pxPerDay);
+                const wrap = makeDiamond(ms, true);
+                wrap.style.left = x + "px";
+                wrap.style.top  = Math.max(0, diamondLaneH - 30) + "px";  // adjusted for 18px diamond
+                // append to timeline directly (absolute positioned)
+                wrap.style.top = (slotY + Math.round((diamondLaneH - 26) / 2)) + "px";
+                wrap.style.left = (parseInt(wrap.style.left) - 9) + "px";  // center 18px diamond
+                tl.appendChild(wrap);
+            });
+            // Separator line between diamond lane and bar
+            const sep = document.createElement("div");
+            sep.className = "gridH";
+            sep.style.top = barLaneY + "px";
+            sep.style.background = "#e2e8f0";
+            tl.appendChild(sep);
+        }
+
+        // Bar lane
+        const lane = document.createElement("div");
+        lane.className  = "lane";
+        lane.style.top  = barLaneY + "px";
+        lane.style.left = lane.style.right = "0";
+
+        const startD = parseDate(item.start);
+        const endD   = parseDate(item.end);
+        const barL   = Math.round(daysBetween(minDate, startD) * pxPerDay);
+        const dur    = Math.round(daysBetween(startD, endD));
+        const barW   = dur * pxPerDay;
+        const barH   = Math.max(24, rowSpacing - barTopPx - 8);
+
+        const bar = document.createElement("div");
+        bar.className    = "bar";
+        bar.style.left   = barL + "px";
+        bar.style.width  = barW + "px";
+        bar.style.top    = barTopPx + "px";
+        bar.style.height = barH + "px";
+        if (item.color) bar.style.background = getColor(item.color);
+        
+        // Add clickable functionality if URL exists
+        if (item.url) {
+            bar.classList.add("clickable");
+            bar.onclick = (e) => {
+                e.stopPropagation();
+                window.open(item.url, '_blank');
+            };
+            bar.title = "Click to open: " + item.url;
+        }
+
+        const dl = document.createElement("span");
+        dl.className = "barDays";
+        dl.style.fontSize = fontSize + "px";
+        dl.innerText = dur + " d";
+        bar.appendChild(dl);
+
+        const lbl = document.createElement("div");
+        lbl.className        = "label";
+        lbl.innerHTML        = item.activity.replace(/\n/g, "<br>");
+        lbl.style.left       = (barL + barW + 8) + "px";
+        lbl.style.top        = barTopPx + "px";
+        lbl.style.height     = barH + "px";
+        lbl.style.display    = "flex";
+        lbl.style.alignItems = "center";
+        lbl.style.fontSize   = fontSize + "px";
+        lbl.style.whiteSpace = "nowrap";
+        lbl.style.color      = "#1e293b";
+
+        lane.appendChild(bar);
+        lane.appendChild(lbl);
+        tl.appendChild(lane);
+    });
+
+    panOffset = snapVelocity = 0;
+    applyTransform();
+    snapHint.style.opacity = "1";
+    setTimeout(() => { snapHint.style.opacity = "0"; }, 4000);
+}
+
+// ── Diamond element factory ────────────────────────────────────────────────────
+function makeDiamond(item, snapped) {
+    const wrap = document.createElement("div");
+    wrap.className = "milestoneWrap";
+    wrap.style.position = "absolute";
+    
+    // Add clickable functionality if URL exists
+    if (item.url) {
+        wrap.classList.add("clickable");
+        wrap.onclick = (e) => {
+            e.stopPropagation();
+            window.open(item.url, '_blank');
+        };
+        wrap.title = "Click to open: " + item.url;
+    }
+
+    const icon = document.createElement("div");
+    icon.className = "diamond";
+    icon.style.setProperty("--dc", getColor(item.color) || "#f59e0b");
+
+    const textBlock = document.createElement("div");
+    textBlock.className = "msText";
+
+    const lbl = document.createElement("div");
+    lbl.className = "msTitle";
+    lbl.innerHTML = item.activity.replace(/\n/g, " ");
+
+    const daysEl = document.createElement("div");
+    daysEl.className    = "daysLeft project";
+    daysEl.style.fontSize = Math.max(10, fontSize - 1) + "px";  // follows setting, slightly smaller
+    daysEl.dataset.date = item.date;
+    daysEl.dataset.kind = "project";
+
+    textBlock.appendChild(lbl);
+    textBlock.appendChild(daysEl);
+    wrap.appendChild(icon);
+    wrap.appendChild(textBlock);
+    return wrap;
+}
+
+// ── Persistence ────────────────────────────────────────────────────────────────
+window.addEventListener("load", () => {
+    loadSettings();
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try { items = JSON.parse(saved); buildTimeline(); }
+        catch(e) { localStorage.removeItem(STORAGE_KEY); }
+    }
+});
+
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+        const raw = evt.target.result;
+        try {
+            items = JSON.parse(raw);
+            localStorage.setItem(STORAGE_KEY, raw);
+            buildTimeline();
+            showToast("✓ Updated");
+        } catch(err) { alert("Invalid JSON: " + err.message); }
+    };
+    reader.readAsText(file);
+});
+
+window.addEventListener("resize", applyTransform);
+</script>
+</body>
+</html>
