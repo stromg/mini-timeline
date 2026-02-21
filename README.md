@@ -2,7 +2,7 @@
 
 En enkel, visuell projektplanering för team-skärmar. Perfekt för att hålla teamet uppdaterat om projektstatus utan överflödig komplexitet.
 
-![Mini-Timeline Screenshot](Screenshot.png)
+![Mini-Timeline Screenshot](./screenshot.png)
 
 ## Vad är Mini-Timeline?
 
