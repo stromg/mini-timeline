@@ -2,7 +2,7 @@
 
 En interaktiv tidslinje för projektplanering. Perfekt för team-skärmar.
 
-<img src="screenshot.png" width="800" alt="Mini-Timeline Timeline">
+<img src="Screenshot.png" width="800" alt="Mini-Timeline Timeline">
 
 ## Snabbstart
 
