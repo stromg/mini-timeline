@@ -116,17 +116,11 @@ Färgerna roterar automatiskt. Du behöver alltså inte ange `color` för aktivi
 Om du vill kan du fortfarande ange färger manuellt:
 
 **Blues**: `lightblue`, `skyblue`, `blue`, `darkblue`, `indigo`
-
 **Purples**: `purple`, `violet`
-
 **Greens**: `green`, `lightgreen`, `darkgreen`
-
 **Yellows/Oranges**: `yellow`, `orange`, `amber`
-
 **Reds/Pinks**: `red`, `pink`
-
 **Neutrals**: `gray`, `slate`, `black`
-
 **Cyans/Teals**: `cyan`, `teal`
 
 Du kan också använda hex-koder direkt, t.ex. `"color": "#3b82f6"`
@@ -243,4 +237,4 @@ Mini-Timeline använder en **enkel top-down lane-packing** algoritm:
 
 ## Licens
 
-Fri att använda och modifiera. MIT
+Fri att använda och modifiera.
