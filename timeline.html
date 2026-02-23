@@ -279,6 +279,7 @@
         justify-content: center;
         overflow: hidden;
         transition: transform 0.15s, box-shadow 0.15s;
+        z-index: 2;  /* Above grid lines */
     }
 
     .bar.clickable {
@@ -369,6 +370,7 @@
     .label {
         position: absolute;
         white-space: nowrap;
+        z-index: 2;  /* Above grid lines */
     }
 
     /* ── Today line ── */
@@ -384,13 +386,15 @@
 
     #todayPin {
         position: fixed;
-        top: 40px;
+        top: 18px;
+        height: 42px;
         transform: translateX(-50%);
-        z-index: 6;
+        z-index: 11;
         pointer-events: none;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: flex-end;  /* Align to bottom, content grows upward */
     }
 
     #todayChip {
@@ -398,12 +402,26 @@
         color: white;
         font-size: 11px;
         font-weight: bold;
-        padding: 3px 10px;
+        padding: 4px 10px;
         border-radius: 3px;
         letter-spacing: 0.5px;
-        white-space: nowrap;
         text-align: center;
-        line-height: 1.5;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    #todayLabel {
+        /* No transition - instant show/hide */
+    }
+    
+    #todayLabel.hidden {
+        display: none;
+    }
+    
+    #todayDate {
+        /* Always visible */
     }
 
     #todayTriangle {
@@ -425,7 +443,8 @@
         border-radius: 12px;
         z-index: 20;
         pointer-events: none;
-        display: none;
+        opacity: 0;
+        transition: opacity 0.15s ease;
         text-align: left;
         line-height: 1.7;
         box-shadow: 0 2px 12px rgba(245, 158, 11, 0.15), 0 1px 3px rgba(0,0,0,0.1);
@@ -494,7 +513,10 @@
 
 <div id="todayLine"></div>
 <div id="todayPin">
-    <div id="todayChip">TODAY</div>
+    <div id="todayChip">
+        <div id="todayLabel" class="hidden">TODAY</div>
+        <div id="todayDate">2026-02-22</div>
+    </div>
     <div id="todayTriangle"></div>
 </div>
 <div id="activityBox"></div>
@@ -503,6 +525,11 @@
 <div id="timelineWrapper">
     <div id="timeline">
         <div class="dateAxis" id="dateAxis"></div>
+    </div>
+    <div id="emptyPlaceholder" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:#94a3b8; font-size:20px; pointer-events:none;">
+        <div style="font-size:48px; margin-bottom:20px;">📊</div>
+        <div>Drag & drop your JSON file here</div>
+        <div style="font-size:14px; margin-top:10px; opacity:0.7;">or use the hamburger menu to load data</div>
     </div>
 </div>
 
@@ -553,11 +580,31 @@ function getColor(c) {
     return COLORS[lower] || c;  // Return mapped color or original if not found
 }
 
+// ── Color palette ──────────────────────────────────────────────────────────
+const COLOR_POOL = [
+    "#6366f1", // indigo (Planering)
+    "#8b5cf6", // purple (Design & Prototyp)
+    "#3b82f6", // blue (Backend)
+    "#0ea5e9", // sky (Frontend)
+    "#f97316", // orange (Test & QA)
+    "#22c55e"  // green (Driftsättning)
+];
+
+let colorIndex = 0;
+
+function getAutoColor() {
+    const color = COLOR_POOL[colorIndex % COLOR_POOL.length];
+    colorIndex++;
+    return color;
+}
+
 // ── Configurable settings ──────────────────────────────────────────────────────
 let pxPerDay      = 20;
 let rowSpacing    = 70;
 let fontSize      = 14;
 let noteHorizon   = 60;  // days ahead to show in activity box
+let maxBars       = 7;   // max visible bar lanes
+const minLanes    = 30;  // minimum lanes to fill screen with nice grid pattern
 
 function loadSettings() {
     try {
@@ -566,6 +613,7 @@ function loadSettings() {
         if (s.rowSpacing)   rowSpacing   = s.rowSpacing;
         if (s.fontSize)     fontSize     = s.fontSize;
         if (s.noteHorizon)  noteHorizon  = s.noteHorizon;
+        if (s.maxBars)      maxBars      = s.maxBars;
     } catch(e) {}
     syncSliders();
 }
@@ -575,7 +623,8 @@ function saveSettings() {
         pxPerDay, 
         rowSpacing, 
         fontSize, 
-        noteHorizon 
+        noteHorizon,
+        maxBars
     }));
 }
 
@@ -620,6 +669,13 @@ function onNoteHorizon(v) {
     updateActivityBox();
 }
 
+function onMaxBars(v) {
+    maxBars = +v;
+    document.getElementById("maxBarsVal").textContent = v;
+    saveSettings();
+    buildTimeline();
+}
+
 function toggleSettings() {
     document.getElementById("settingsWrap").classList.toggle("open");
 }
@@ -656,7 +712,8 @@ const keysDown = { ArrowLeft: false, ArrowRight: false };
 
 const snapHint    = document.getElementById("snapHint");
 const tl          = document.getElementById("timeline");
-const todayChip   = document.getElementById("todayChip");
+const todayLabel  = document.getElementById("todayLabel");
+const todayDate   = document.getElementById("todayDate");
 const activityBox = document.getElementById("activityBox");
 
 // ── Auto-reload ────────────────────────────────────────────────────────────────
@@ -722,7 +779,17 @@ function isAtToday() { return Math.abs(panOffset) < pxPerDay * 0.5; }
 function updateChip() {
     if (!minDate) return;
     const cs = localDateStr(centerDate());
-    todayChip.innerHTML = (cs === todayStr()) ? "TODAY<br>" + cs : cs;
+    const isToday = cs === todayStr();
+    
+    // Always update date (no transition)
+    todayDate.textContent = cs;
+    
+    // Show/hide TODAY label
+    if (isToday && todayLabel.classList.contains("hidden")) {
+        todayLabel.classList.remove("hidden");
+    } else if (!isToday && !todayLabel.classList.contains("hidden")) {
+        todayLabel.classList.add("hidden");
+    }
 }
 
 function updateMilestoneLabels() {
@@ -741,20 +808,29 @@ function updateMilestoneLabels() {
 }
 
 function updateActivityBox() {
-    if (!boxItems.length) { activityBox.style.display = "none"; return; }
+    if (!boxItems.length) { 
+        activityBox.style.opacity = "0"; 
+        activityBox.style.pointerEvents = "none";
+        return; 
+    }
     const ref = minDate ? centerDate() : new Date();
     const rows = boxItems
         .map(a => ({ ...a, diff: Math.round(daysBetween(ref, parseDate(a.date))) }))
-        .filter(a => a.diff >= 0 && a.diff <= noteHorizon)  // Only future events within horizon
+        .filter(a => a.diff >= 0 && a.diff <= noteHorizon)
         .sort((a, b) => a.diff - b.diff);
     
-    if (rows.length === 0) { activityBox.style.display = "none"; return; }
+    if (rows.length === 0) { 
+        activityBox.style.opacity = "0"; 
+        activityBox.style.pointerEvents = "none";
+        return; 
+    }
     
     activityBox.innerHTML = rows.map(a => {
         const when = a.diff === 0 ? "Idag" : "Om " + a.diff + " dagar";
         return `<div class="act-row"><span class="act-dot" style="background:${getColor(a.color)||'#f59e0b'}"></span><span><strong>${a.activity}</strong> — ${when}</span></div>`;
     }).join("");
-    activityBox.style.display = "block";
+    activityBox.style.opacity = "1";
+    activityBox.style.pointerEvents = "auto";
 }
 
 function applyTransform() {
@@ -762,10 +838,16 @@ function applyTransform() {
     tl.style.transform = `translateX(${homeOffset() + panOffset}px)`;
     document.getElementById("todayLine").style.left = cx + "px";
     document.getElementById("todayPin").style.left  = cx + "px";
-    updateChip();
-    updateMilestoneLabels();
+    
+    // Skip chip update during any animation (prevents flicker)
+    if (!snapAnimId && !rafId) {
+        updateChip();
+    }
+    
+    // Activity box uses opacity transition, so it's safe to update during animations
     updateActivityBox();
-
+    
+    updateMilestoneLabels();
 }
 
 function showToast(msg) {
@@ -787,11 +869,13 @@ function snapToDayBoundary() {
 }
 
 function panLoop() {
-    if (!keysDown.ArrowLeft && !keysDown.ArrowRight) { rafId = null; return; }
+    if (!keysDown.ArrowLeft && !keysDown.ArrowRight) { 
+        rafId = null;
+        updateChip();
+        return;
+    }
     if (keysDown.ArrowRight) panOffset -= PAN_STEP;
     if (keysDown.ArrowLeft)  panOffset += PAN_STEP;
-    // During fast scroll we allow sub-day positions for smoothness —
-    // they get corrected on key-up via snapToDayBoundary()
     applyTransform();
     rafId = requestAnimationFrame(panLoop);
 }
@@ -825,7 +909,6 @@ document.addEventListener("keyup", e => {
         clearTimeout(holdTimer);
         holdTimer = null;
         if (isFastScrolling) {
-            // Snap to nearest day boundary after fast scroll
             snapToDayBoundary();
             applyTransform();
         }
@@ -849,8 +932,8 @@ function springSnap() {
     if (Math.abs(panOffset) < 0.5 && Math.abs(snapVelocity) < 0.5) {
         panOffset    = 0;
         snapVelocity = 0;
-        applyTransform();
         snapAnimId = null;
+        applyTransform();  // Final transform with updateChip enabled
         return;
     }
     snapAnimId = requestAnimationFrame(springSnap);
@@ -860,7 +943,18 @@ function springSnap() {
 function buildTimeline() {
     tl.innerHTML = '<div class="dateAxis" id="dateAxis"></div>';
     const dateAxis = document.getElementById("dateAxis");
-    if (!items.length) return;
+    const placeholder = document.getElementById("emptyPlaceholder");
+    
+    if (!items.length) {
+        placeholder.style.display = "block";
+        // Center the TODAY line when empty for clearer empty state
+        panOffset = 0;
+        const centerX = window.innerWidth / 2;
+        document.getElementById("todayLine").style.left = centerX + "px";
+        document.getElementById("todayPin").style.left = centerX + "px";
+        return;
+    }
+    placeholder.style.display = "none";
 
     // ── Categorise ────────────────────────────────────────────────────────────
     // Schema: activity=name, type="area"|"note"|undefined
@@ -873,21 +967,82 @@ function buildTimeline() {
     const bars     = items.filter(i => i.start && i.end && i.type !== "area");
     const blocks   = items.filter(i => i.start && i.end && i.type === "area");
     const diamonds = items.filter(i => i.date && !i.start);
-    boxItems       = diamonds.filter(i => i.type === "note");
-
-    // Update header badge with custom title or fall back to year
-    const yb = document.getElementById("yearBadge");
-    if (yb) yb.textContent = titleItem ? titleItem.title : new Date().getFullYear();
-
+    boxItems       = diamonds.filter(i => i.highlight === true);
+    
+    // Auto-assign colors to bars without explicit color
+    colorIndex = 0;  // Reset for consistent colors
+    bars.forEach(bar => {
+        if (!bar.color) {
+            bar.color = getAutoColor();
+        }
+    });
+    
+    // Calculate min/max dates FIRST
     const allDates = [];
     [...bars, ...blocks, ...diamonds].forEach(i => {
         if (i.start) allDates.push(parseDate(i.start));
         if (i.end)   allDates.push(parseDate(i.end));
         if (i.date)  allDates.push(parseDate(i.date));
     });
-
+    
     minDate = new Date(Math.min(...allDates));
-    const maxDate   = new Date(Math.max(...allDates));
+    const maxDate = new Date(Math.max(...allDates));
+    
+    // Simple lane packing: test lanes from top (0, 1, 2...) until bar fits
+    bars.sort((a, b) => parseDate(a.start) - parseDate(b.start));
+    
+    // Track which bars are in each lane
+    const lanes = [];  // [ { bars: [bar1, bar2] }, { bars: [bar3] }, ...]
+    
+    bars.forEach(bar => {
+        const barX1 = Math.round(daysBetween(minDate, parseDate(bar.start)) * pxPerDay);
+        const barX2 = Math.round(daysBetween(minDate, parseDate(bar.end)) * pxPerDay);
+        
+        // Estimate text width (fontSize * 0.6 per character is typical for proportional fonts)
+        const charWidth = fontSize * 0.6;
+        const textWidth = (bar.activity || '').length * charWidth;
+        const barWithTextX2 = barX2 + 8 + textWidth;  // 8px gap + text
+        
+        // Try lanes from top (0, 1, 2...) until we find one that fits
+        let placedLane = -1;
+        
+        for (let laneIdx = 0; laneIdx < lanes.length; laneIdx++) {
+            // Check if this bar collides with ANY bar+text in this lane
+            let collision = false;
+            
+            for (const existingBar of lanes[laneIdx].bars) {
+                const existingX1 = Math.round(daysBetween(minDate, parseDate(existingBar.start)) * pxPerDay);
+                const existingX2 = Math.round(daysBetween(minDate, parseDate(existingBar.end)) * pxPerDay);
+                const existingTextWidth = (existingBar.activity || '').length * charWidth;
+                const existingWithTextX2 = existingX2 + 8 + existingTextWidth;
+                
+                // Do they overlap in X? (including text)
+                if (barX1 < existingWithTextX2 && barWithTextX2 > existingX1) {
+                    collision = true;
+                    break;
+                }
+            }
+            
+            if (!collision) {
+                // Found a free lane!
+                lanes[laneIdx].bars.push(bar);
+                bar.laneNumber = laneIdx;
+                placedLane = laneIdx;
+                break;
+            }
+        }
+        
+        // No free lane found - create new one at bottom
+        if (placedLane === -1) {
+            bar.laneNumber = lanes.length;
+            lanes.push({ bars: [bar] });
+        }
+    });
+
+    // Update header badge with custom title or fall back to year
+    const yb = document.getElementById("yearBadge");
+    if (yb) yb.textContent = titleItem ? titleItem.title : new Date().getFullYear();
+
     const totalDays = daysBetween(minDate, maxDate) + 60;
     tl.style.width  = (totalDays * pxPerDay) + "px";
 
@@ -924,23 +1079,23 @@ function buildTimeline() {
     }
 
     // ── Diamond snapping to bar start/end ─────────────────────────────────────
-    const barDateMap = {};
-    bars.forEach((item, index) => {
-        const ss = localDateStr(parseDate(item.start));
-        const es = localDateStr(parseDate(item.end));
-        if (barDateMap[ss] === undefined) barDateMap[ss] = index;
-        if (barDateMap[es] === undefined) barDateMap[es] = index;
+    const barDateMap = new Map();  // dateStr -> bar object
+    bars.forEach(bar => {
+        const startStr = localDateStr(parseDate(bar.start));
+        const endStr = localDateStr(parseDate(bar.end));
+        if (!barDateMap.has(startStr)) barDateMap.set(startStr, bar);
+        if (!barDateMap.has(endStr)) barDateMap.set(endStr, bar);
     });
 
-    const snappedMs    = {}; // barIndex -> [diamond,...]
-    const standaloneDs = []; // not matched to any bar
+    const snappedMs = new Map();  // bar object -> [diamond,...]
+    const standaloneDs = [];
 
     diamonds.forEach(item => {
-        const ds      = localDateStr(parseDate(item.date));
-        const snapIdx = barDateMap[ds];
-        if (snapIdx !== undefined) {
-            if (!snappedMs[snapIdx]) snappedMs[snapIdx] = [];
-            snappedMs[snapIdx].push(item);
+        const dateStr = localDateStr(parseDate(item.date));
+        const matchedBar = barDateMap.get(dateStr);
+        if (matchedBar) {
+            if (!snappedMs.has(matchedBar)) snappedMs.set(matchedBar, []);
+            snappedMs.get(matchedBar).push(item);
         } else {
             standaloneDs.push(item);
         }
@@ -949,6 +1104,7 @@ function buildTimeline() {
     // ── Layout: compute Y positions ───────────────────────────────────────────
     const dSingleH     = Math.round(fontSize * 2.8 + 24); // 18px icon + title + daysLeft + margin
     const diamondLaneH = dSingleH;  // Same height as standalone diamonds for consistency
+    const compactDiamondH = Math.round(diamondLaneH * 0.65);  // Compact diamond lanes (65% height)
     const barTopPx     = Math.max(14, fontSize + 2);
 
     // Standalone diamonds: collision-detect into rows at the TOP
@@ -988,15 +1144,31 @@ function buildTimeline() {
     }
     if (numDsRows > 0) cursor += 4; // small gap before bars
 
-    // Then bars (with optional snapped diamond lane above)
-    const slotTopY = [];
-    bars.forEach((item, index) => {
-        slotTopY.push(cursor);
-        if (snappedMs[index]) cursor += diamondLaneH;
+    // Calculate Y position for each lane
+    const laneY = [];
+    for (let i = 0; i < lanes.length; i++) {
+        laneY.push(cursor);
+        
+        // Check if ANY bar in this lane has diamonds
+        const laneHasDiamonds = lanes[i].bars.some(bar => snappedMs.has(bar));
+        
+        if (laneHasDiamonds) {
+            cursor += compactDiamondH;
+        }
         cursor += rowSpacing;
+    }
+    
+    // Map each bar to its lane's Y position
+    const slotTopY = [];
+    bars.forEach(bar => {
+        slotTopY.push(laneY[bar.laneNumber]);
     });
-
-    const totalH = cursor + 40;
+    
+    const maxY = cursor;
+    
+    // Minimum height based on minLanes for nice grid pattern that fills screen
+    const minHeight = (numDsRows * dSingleH) + (minLanes * rowSpacing) + 40;
+    const totalH = Math.max(cursor, maxY, minHeight) + 40;
     tl.style.height = totalH + "px";
 
     // ── Vertical grid lines ───────────────────────────────────────────────────
@@ -1021,16 +1193,16 @@ function buildTimeline() {
         band.style.background = getColor(item.color) || "#94a3b8";
         tl.appendChild(band);
         // Rotated label: writing-mode so it flows naturally top→bottom
-        // Font size fills ~75% of band width, capped so text fits height
-        const fs  = Math.min(w * 0.75, totalH * 0.18, 100);
+        // Positioned at top with small margin, aligned like week boxes
+        const fs  = Math.min(w * 0.75, 120, 100);  // Fixed max size instead of dependent on totalH
         const lbl = document.createElement("div");
         lbl.textContent = item.activity;
         lbl.style.cssText = [
             "position:absolute",
             `left:${x}px`,
             `width:${w}px`,
-            `top:40px`,
-            `height:${totalH - 40}px`,
+            `top:50px`,  // Just below week boxes (40px date axis + 10px margin)
+            `height:auto`,  // Don't stretch to bottom
             `font-size:${Math.round(fs)}px`,
             `color:${getColor(item.color) || "#94a3b8"}`,
             "opacity:0.3",
@@ -1041,7 +1213,8 @@ function buildTimeline() {
             "transform:rotate(180deg)",   // bottom-to-top direction
             "display:flex",
             "align-items:center",
-            "justify-content:center",
+            "justify-content:flex-start",  // Align to top instead of center
+            "padding-top:20px",  // Extra margin from top
             "overflow:hidden",
             "letter-spacing:0.05em",
         ].join(";");
@@ -1085,22 +1258,21 @@ function buildTimeline() {
     // ── Bar slots ─────────────────────────────────────────────────────────────
     bars.forEach((item, index) => {
         const slotY       = slotTopY[index];
-        const hasDiamonds = !!(snappedMs[index] && snappedMs[index].length);
-        const barLaneY    = slotY + (hasDiamonds ? diamondLaneH : 0);
+        const hasDiamonds = snappedMs.has(item) && snappedMs.get(item).length > 0;
+        const barLaneY    = slotY + (hasDiamonds ? compactDiamondH : 0);
 
         const gh = document.createElement("div");
         gh.className = "gridH"; gh.style.top = slotY + "px";
         tl.appendChild(gh);
 
-        // Optional diamond lane above bar
+        // Optional diamond lane above bar (compact height)
         if (hasDiamonds) {
-            snappedMs[index].forEach(ms => {
+            snappedMs.get(item).forEach(ms => {
                 const x    = Math.round(daysBetween(minDate, parseDate(ms.date)) * pxPerDay);
                 const wrap = makeDiamond(ms, true);
                 wrap.style.left = x + "px";
-                wrap.style.top  = Math.max(0, diamondLaneH - 30) + "px";  // adjusted for 18px diamond
-                // append to timeline directly (absolute positioned)
-                wrap.style.top = (slotY + Math.round((diamondLaneH - 26) / 2)) + "px";
+                // Center diamond in compact lane
+                wrap.style.top = (slotY + Math.round((compactDiamondH - 26) / 2)) + "px";
                 wrap.style.left = (parseInt(wrap.style.left) - 9) + "px";  // center 18px diamond
                 tl.appendChild(wrap);
             });
@@ -1166,8 +1338,32 @@ function buildTimeline() {
         tl.appendChild(lane);
     });
 
+    // Fill remaining grid lines to reach minLanes for nice screen-filling pattern
+    const usedLanes = lanes.length;
+    const startY = (numDsRows * dSingleH) + (usedLanes * rowSpacing);
+    for (let i = usedLanes; i < minLanes; i++) {
+        const y = startY + ((i - usedLanes) * rowSpacing);
+        const gh = document.createElement("div");
+        gh.className = "gridH";
+        gh.style.top = y + "px";
+        tl.appendChild(gh);
+    }
+
     panOffset = snapVelocity = 0;
     applyTransform();
+    
+    // Set initial state for TODAY label and date
+    const initialDate = localDateStr(centerDate());
+    todayDate.textContent = initialDate;
+    if (initialDate !== todayStr()) {
+        todayLabel.classList.add("hidden");
+    } else {
+        todayLabel.classList.remove("hidden");
+    }
+    
+    // Snap to TODAY automatically on load (small delay to ensure render is complete)
+    setTimeout(() => triggerSnap(), 50);
+    
     snapHint.style.opacity = "1";
     setTimeout(() => { snapHint.style.opacity = "0"; }, 4000);
 }
@@ -1215,10 +1411,30 @@ function makeDiamond(item, snapped) {
 // ── Persistence ────────────────────────────────────────────────────────────────
 window.addEventListener("load", () => {
     loadSettings();
+    
+    // Check if running on file:// protocol
+    if (window.location.protocol === 'file:') {
+        console.warn('[LOAD] ⚠️ Running on file:// protocol - localStorage may not work!');
+        console.warn('[LOAD] To fix: Run a local server instead (e.g., python -m http.server)');
+    }
+    
     const saved = localStorage.getItem(STORAGE_KEY);
+    console.log('[LOAD] localStorage data:', saved ? 'Found (' + saved.length + ' chars)' : 'Not found');
+    
     if (saved) {
-        try { items = JSON.parse(saved); buildTimeline(); }
-        catch(e) { localStorage.removeItem(STORAGE_KEY); }
+        try { 
+            items = JSON.parse(saved);
+            console.log('[LOAD] Parsed items:', items.length, 'items');
+            buildTimeline(); 
+            showToast("✓ Loaded from storage");
+        }
+        catch(e) { 
+            console.error('[LOAD] Parse error:', e);
+            localStorage.removeItem(STORAGE_KEY); 
+        }
+    } else {
+        console.log('[LOAD] No data in localStorage, calling buildTimeline anyway');
+        buildTimeline();  // Call even when empty to show placeholder
     }
 });
 
@@ -1232,10 +1448,31 @@ document.addEventListener("drop", e => {
         const raw = evt.target.result;
         try {
             items = JSON.parse(raw);
-            localStorage.setItem(STORAGE_KEY, raw);
+            console.log('[DROP] Parsed JSON, items:', items.length);
+            
+            // Try to save to localStorage
+            try {
+                localStorage.setItem(STORAGE_KEY, raw);
+                console.log('[DROP] Successfully saved to localStorage');
+                
+                // Verify it was saved
+                const verify = localStorage.getItem(STORAGE_KEY);
+                if (verify) {
+                    console.log('[DROP] Verified: localStorage contains', verify.length, 'chars');
+                } else {
+                    console.error('[DROP] ERROR: localStorage is empty after save!');
+                }
+            } catch(storageError) {
+                console.error('[DROP] localStorage.setItem FAILED:', storageError);
+                alert('WARNING: Could not save to localStorage. Data will be lost on reload.\n\nError: ' + storageError.message);
+            }
+            
             buildTimeline();
             showToast("✓ Updated");
-        } catch(err) { alert("Invalid JSON: " + err.message); }
+        } catch(err) { 
+            console.error('[DROP] JSON parse error:', err);
+            alert("Invalid JSON: " + err.message); 
+        }
     };
     reader.readAsText(file);
 });

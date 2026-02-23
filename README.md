@@ -1,36 +1,31 @@
 # Mini-Timeline
 
-En enkel, visuell projektplanering för team-skärmar. Perfekt för att hålla teamet uppdaterat om projektstatus utan överflödig komplexitet.
+En interaktiv tidslinje för projektplanering. Perfekt för team-skärmar.
 
-![Mini-Timeline Screenshot](./screenshot.png)
+<img src="screenshot.png" width="800" alt="Mini-Timeline Timeline">
 
-## Vad är Mini-Timeline?
+## Snabbstart
 
-Mini-Timeline är ett minimalistiskt verktyg för att visa projektplaner på en permanent skärm i teamrummet. Ingen installation, ingen server, ingen databas. Bara en HTML-fil och en JSON-config du själv skriver.
+1. Öppna `timeline.html` i din webbläsare
+2. Drag-drop `timeline.json` på sidan
+3. Navigera med piltangenterna (← →)
+4. Tryck valfri annan tangent för att hoppa till TODAY
 
-## Hur fungerar det?
+Data sparas automatiskt i localStorage.
 
-1. Öppna `timeline.html` i en webbläsare (Chrome, Firefox, Safari etc)
-2. Skapa din projektplan som en JSON-fil
-3. Drag-and-drop JSON-filen till webbläsaren
-4. Klar! Din tidslinje uppdateras direkt
+## Features
 
-Perfekt för att köra på en permanent skärm i teamrummet. När projektet ändras, släpp bara in en ny JSON-fil.
-
-## Funktioner
-
-- Veckobaserad tidslinje med ISO-veckonummer (v.1, v.2 osv)
-- Aktiviteter visas som färgade staplar
-- Milestones (diamanter) för viktiga datum
-- Klickbara länkar till Jira, Google Meet, dokument etc
-- Event horizon: visa kommande händelser i en notis-box
+- Drag-drop JSON för att ladda data
+- Keyboard navigation (piltangenter)
+- Auto-färger (6 färger roterar automatiskt)
+- Milstolpar, aktiviteter, och area blocks
+- Sparas i localStorage - funkar efter reload
+- Klickbara länkar på events
 - Fullscreen-läge (tryck ESC för att avsluta)
-- Navigera med piltangenter, tryck valfri annan tangent för att återgå till idag
-- Anpassningsbar zoom, fontstorlek och radavstånd via inställningar
 
-## Konfigurations-guide
+## JSON Format
 
-Din projektplan definieras i en JSON-fil. Här är de olika typerna av objekt du kan använda:
+Se `timeline.json` i repot för ett komplett exempel. Din projektplan definieras i en JSON-array med olika objekt:
 
 ### Titel
 
@@ -77,13 +72,12 @@ Visas som stort rubrik uppe till vänster.
 {
   "activity": "Teamlunch",
   "date": "2026-02-27",
-  "color": "black",
-  "type": "note"
+  "highlight": true
 }
 ```
 
-- `type: "note"`: Gör att händelsen visas i den gula notis-boxen
-- Notis-boxen visar händelser inom din valda "event horizon" (standard 60 dagar)
+- `highlight: true`: Gör att händelsen visas i den gula activity-boxen
+- Activity-boxen visar händelser inom din valda "event horizon" (standard 60 dagar)
 
 ### Bakgrundsområden
 
@@ -102,7 +96,24 @@ Visas som stort rubrik uppe till vänster.
 
 ## Färger
 
-Använd dessa färgnamn i `color`-fältet:
+### Auto-färger
+
+**Aktiviteter (bars) får automatiskt snygga färger om du INTE anger `color`!**
+
+Mini-Timeline använder en roterande färgpool med 6 färger:
+
+1. **Indigo** (#6366f1) - indigo-blå
+2. **Purple** (#8b5cf6) - lila
+3. **Blue** (#3b82f6) - blå
+4. **Sky** (#0ea5e9) - cyan/ljusblå
+5. **Orange** (#f97316) - orange
+6. **Green** (#22c55e) - grön
+
+Färgerna roterar automatiskt. Du behöver alltså inte ange `color` för aktiviteter!
+
+### Manuella färger
+
+Om du vill kan du fortfarande ange färger manuellt:
 
 **Blues**: `lightblue`, `skyblue`, `blue`, `darkblue`, `indigo`
 
@@ -136,20 +147,17 @@ Mini-Timeline stödjer två format:
   { 
     "activity": "Planering",
     "start": "2026-01-05",
-    "end": "2026-01-23",
-    "color": "indigo"
+    "end": "2026-01-23"
   },
   { 
     "activity": "Design & Prototyp",
     "start": "2026-01-19",
-    "end": "2026-02-13",
-    "color": "purple"
+    "end": "2026-02-13"
   },
   { 
     "activity": "Backend",
     "start": "2026-02-02",
-    "end": "2026-03-13",
-    "color": "blue"
+    "end": "2026-03-13"
   },
   { 
     "activity": "Kickoff",
@@ -164,8 +172,7 @@ Mini-Timeline stödjer två format:
   { 
     "activity": "Teamlunch",
     "date": "2026-02-27",
-    "color": "black",
-    "type": "note"
+    "highlight": true
   },
   { 
     "activity": "Vacation",
@@ -187,6 +194,28 @@ Klicka på hamburger-menyn uppe till höger för att justera:
 - **Event horizon**: Hur långt fram i tiden händelser ska visas (7-160 dagar)
 
 Alla inställningar sparas automatiskt i webbläsaren.
+
+### Smart Lane Packing
+
+Mini-Timeline använder en **enkel top-down lane-packing** algoritm:
+
+**Hur det fungerar:**
+1. Sorterar aktiviteter efter starttid (kronologisk ordning)
+2. För varje aktivitet:
+   - Testa lane 0, 1, 2... från toppen
+   - Placera aktiviteten i första lane där den INTE överlappar tidsmässigt
+   - Om ingen lane passar: skapa ny lane längst ner
+3. Aktiviteter i samma lane delar Y-position (visuellt på samma rad)
+
+**Exempel:**
+- **Planering** (jan 5-23) → Lane 0
+- **Design** (jan 19-feb 13) → Lane 1 (överlappar Planering)
+- **Backend** (feb 2-mar 16) → Lane 0 (Planering slutade jan 23 - ingen överlapp!)
+- **Driftsättning** (apr 6-17) → Lane 0 (fortfarande plats!)
+
+**Resultat:** Automatiskt tätt packade rader utan tomma mellanrum!
+
+**Diamond lanes:** Bara 65% av normal höjd för kompaktare layout.
 
 ## Tangentbords-genvägar
 
@@ -214,4 +243,4 @@ Alla inställningar sparas automatiskt i webbläsaren.
 
 ## Licens
 
-Fri att använda och modifiera.
+Fri att använda och modifiera. MIT
