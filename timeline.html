@@ -509,6 +509,19 @@
             <input type="range" id="slNoteHorizon" min="0" max="160" value="60" oninput="onNoteHorizon(this.value)">
         </div>
         <div class="setting-row" style="border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <input type="checkbox" id="urlAutoRefresh" onchange="toggleUrlAutoRefresh(this.checked)" 
+                       style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="urlAutoRefresh" style="cursor: pointer; font-weight: 500; font-size: 13px;">Auto-refresh from URL</label>
+            </div>
+            <input type="text" id="jsonUrl" placeholder="https://example.com/data.json" 
+                   style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; font-family: monospace; margin-bottom: 8px;">
+            <button onclick="loadFromUrl()" style="width: 100%; padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                Load from URL
+            </button>
+            <div id="urlStatus" style="font-size: 11px; margin-top: 6px; color: #6b7280; text-align: center;"></div>
+        </div>
+        <div class="setting-row" style="border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px;">
             <button onclick="clearData()" style="width: 100%; padding: 8px 12px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
                 Clear All Diagram Data
             </button>
@@ -1735,6 +1748,128 @@ function clearData() {
     }
 }
 
+// ── Load from URL ───────────────────────────────────────────────────────────────
+async function loadFromUrl() {
+    const urlInput = document.getElementById('jsonUrl');
+    const url = urlInput.value.trim();
+    const status = document.getElementById('urlStatus');
+    
+    if (!url) {
+        alert('Ange en URL först');
+        return;
+    }
+    
+    status.textContent = 'Laddar...';
+    status.style.color = '#3b82f6';
+    
+    try {
+        console.log('[URL] Fetching from:', url);
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('JSON måste vara en array');
+        }
+        
+        items = data;
+        console.log('[URL] Loaded', items.length, 'items');
+        
+        // Spara både data och URL
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY + '_url', url);
+        
+        buildTimeline();
+        status.textContent = '✓ Laddad!';
+        status.style.color = '#10b981';
+        setTimeout(() => { status.textContent = ''; }, 3000);
+        
+    } catch (err) {
+        console.error('[URL] Error:', err);
+        status.textContent = '✗ Fel: ' + err.message;
+        status.style.color = '#ef4444';
+    }
+}
+
+// ── Toggle URL auto-refresh ─────────────────────────────────────────────────────
+function toggleUrlAutoRefresh(enabled) {
+    localStorage.setItem(STORAGE_KEY + '_autoRefresh', enabled ? 'true' : 'false');
+    
+    const status = document.getElementById('urlStatus');
+    if (enabled) {
+        status.textContent = '🔄 Auto-refresh aktiverad';
+        status.style.color = '#10b981';
+        console.log('[AUTO-REFRESH] Enabled');
+    } else {
+        status.textContent = 'Auto-refresh avstängd';
+        status.style.color = '#6b7280';
+        console.log('[AUTO-REFRESH] Disabled');
+    }
+    
+    setTimeout(() => { 
+        if (!enabled) status.textContent = ''; 
+    }, 3000);
+}
+
+// ── Auto-refresh from URL ───────────────────────────────────────────────────────
+async function autoRefreshFromUrl() {
+    const autoRefreshEnabled = localStorage.getItem(STORAGE_KEY + '_autoRefresh') === 'true';
+    const savedUrl = localStorage.getItem(STORAGE_KEY + '_url');
+    
+    if (!autoRefreshEnabled || !savedUrl) return;
+    
+    try {
+        console.log('[AUTO-REFRESH] Fetching from:', savedUrl);
+        const response = await fetch(savedUrl);
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        if (!Array.isArray(data)) return;
+        
+        // Uppdatera bara om data faktiskt har ändrats
+        const oldData = JSON.stringify(items);
+        const newData = JSON.stringify(data);
+        
+        if (oldData !== newData) {
+            items = data;
+            localStorage.setItem(STORAGE_KEY, newData);
+            buildTimeline();
+            console.log('[AUTO-REFRESH] Data updated from URL');
+            
+            const status = document.getElementById('urlStatus');
+            if (status) {
+                status.textContent = '🔄 Uppdaterad ' + new Date().toLocaleTimeString('sv-SE', {hour: '2-digit', minute: '2-digit'});
+                status.style.color = '#10b981';
+            }
+        }
+    } catch (err) {
+        console.error('[AUTO-REFRESH] Error:', err);
+    }
+}
+
+// ── Start auto-refresh timer ────────────────────────────────────────────────────
+// Kör varje timme
+setInterval(() => {
+    autoRefreshFromUrl();
+}, 3600000); // 1 timme
+
+// Kör också vid nytt datum (kolla varje minut)
+let lastDate = todayStr();
+setInterval(() => {
+    const currentDate = todayStr();
+    if (currentDate !== lastDate) {
+        console.log('[DATE-CHANGE] New day detected, rebuilding timeline');
+        buildTimeline();
+        lastDate = currentDate;
+        autoRefreshFromUrl(); // Refresh också vid nytt datum
+    }
+}, 60000); // 1 minut
+
 // ── Diamond element factory ────────────────────────────────────────────────────
 function makeDiamond(item, snapped) {
     const wrap = document.createElement("div");
@@ -1779,6 +1914,21 @@ function makeDiamond(item, snapped) {
 window.addEventListener("load", () => {
     loadSettings();
     
+    // Load URL settings
+    const savedUrl = localStorage.getItem(STORAGE_KEY + '_url');
+    const autoRefresh = localStorage.getItem(STORAGE_KEY + '_autoRefresh') === 'true';
+    
+    if (savedUrl) {
+        document.getElementById('jsonUrl').value = savedUrl;
+    }
+    
+    if (autoRefresh) {
+        document.getElementById('urlAutoRefresh').checked = true;
+        const status = document.getElementById('urlStatus');
+        status.textContent = '🔄 Auto-refresh aktiverad';
+        status.style.color = '#10b981';
+    }
+    
     // Check if running on file:// protocol
     if (window.location.protocol === 'file:') {
         console.warn('[LOAD] ⚠️ Running on file:// protocol - localStorage may not work!');
@@ -1802,6 +1952,11 @@ window.addEventListener("load", () => {
     } else {
         console.log('[LOAD] No data in localStorage, calling buildTimeline anyway');
         buildTimeline();  // Call even when empty to show placeholder
+    }
+    
+    // Auto-refresh from URL if enabled
+    if (autoRefresh && savedUrl) {
+        setTimeout(() => autoRefreshFromUrl(), 2000); // Small delay after initial load
     }
 });
 
