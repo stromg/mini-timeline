@@ -82,20 +82,7 @@ Group related items in dedicated colored lanes:
 
 Note: You dont have to set a color, they'll be set for you via a small pool of nice colors. The colors below are just for reference if you want to set one by your self via the color attribute.
 
-| Swatch | Namn | Hex |
-|--------|------|-----|
-| <span style="display:inline-block;width:20px;height:20px;background:#ef4444;border:1px solid #ccc"></span> | red | `#ef4444` |
-| <span style="display:inline-block;width:20px;height:20px;background:#ec4899;border:1px solid #ccc"></span> | pink | `#ec4899` |
-| <span style="display:inline-block;width:20px;height:20px;background:#f59e0b;border:1px solid #ccc"></span> | orange | `#f59e0b` |
-| <span style="display:inline-block;width:20px;height:20px;background:#fbbf24;border:1px solid #ccc"></span> | yellow | `#fbbf24` |
-| <span style="display:inline-block;width:20px;height:20px;background:#10b981;border:1px solid #ccc"></span> | green | `#10b981` |
-| <span style="display:inline-block;width:20px;height:20px;background:#06b6d4;border:1px solid #ccc"></span> | cyan | `#06b6d4` |
-| <span style="display:inline-block;width:20px;height:20px;background:#0ea5e9;border:1px solid #ccc"></span> | sky | `#0ea5e9` |
-| <span style="display:inline-block;width:20px;height:20px;background:#3b82f6;border:1px solid #ccc"></span> | blue | `#3b82f6` |
-| <span style="display:inline-block;width:20px;height:20px;background:#6366f1;border:1px solid #ccc"></span> | indigo | `#6366f1` |
-| <span style="display:inline-block;width:20px;height:20px;background:#8b5cf6;border:1px solid #ccc"></span> | purple | `#8b5cf6` |
-| <span style="display:inline-block;width:20px;height:20px;background:#6b7280;border:1px solid #ccc"></span> | gray | `#6b7280` |
-| <span style="display:inline-block;width:20px;height:20px;background:#000000;border:1px solid #ccc"></span> | black | `#000000` |
+<img src="swatches.png" width="150" alt="Mini-Timeline Timeline">
 
 ## Settings (Menu)
 
