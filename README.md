@@ -2,7 +2,7 @@
 
 A not-so-small Gantt-type interactive timeline for project visualization, perfect for team dashboard TVs etc.
 
-<img src="screenshot.png" width="800" alt="Mini-Timeline Timeline">
+<img src="screenshot2.png" width="800" alt="Mini-Timeline Timeline">
 
 # Quick Start
 
