@@ -8,8 +8,19 @@ The timeline is moved automatically (every hour).
 # Quick Start
 
 1. Open `timeline.html` in browser
-2. Drag & drop a JSON file, or
+2. Load data via:
+   - **Drag & drop** a JSON file, or
+   - **URL** - Enter URL in settings and enable auto-refresh
 3. Use hamburger menu to Clear All Diagram Data to start fresh
+
+## Loading Data from URL
+
+Perfect for live dashboards and team TVs!
+
+1. **Enter JSON URL** in settings 
+2. Click **"Load from URL"** to load once
+3. **Enable checkbox** for hourly auto-refresh
+
 
 ## JSON Format
 
@@ -106,3 +117,21 @@ Note: You dont have to set a color, they'll be set for you via a small pool of n
 ## Data Storage
 
 All data stored in browser localStorage. "Clear All Diagram Data" only removes app data. Your original JSON files are unaffected.
+
+**Examples of how to serve the JSON file**
+
+```bash
+# Python (simplest)
+python3 -m http.server 8000
+# Access: http://localhost:8000/timeline.json
+
+# Node.js (with npx)
+npx http-server -p 8000
+# Access: http://localhost:8000/timeline.json
+
+# Or use any static file hosting:
+# - GitHub Pages: https://username.github.io/repo/timeline.json
+# - Netlify/Vercel: Deploy your JSON file
+# - Company intranet: Upload to shared server
+```
+
