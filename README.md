@@ -1,7 +1,7 @@
 # Mini-Timeline
 
 A not-so-small Gantt-type interactive timeline for project visualization, perfect for team dashboard TVs etc.
-It is auto-updated every hour, so the timeline is moved automatically.
+The timeline is moved automatically (every hour).
 
 <img src="screenshot1.png" width="800" alt="Mini-Timeline Timeline">
 
