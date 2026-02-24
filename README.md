@@ -9,7 +9,7 @@ The timeline is moved automatically (every hour).
 
 1. Open `timeline.html` in browser
 2. Drag & drop a JSON file, or
-3. Use hamburger menu (⚙️) → Clear All Diagram Data to start fresh
+3. Use hamburger menu to Clear All Diagram Data to start fresh
 
 ## JSON Format
 
@@ -105,4 +105,4 @@ Note: You dont have to set a color, they'll be set for you via a small pool of n
 
 ## Data Storage
 
-All data stored in browser localStorage. "Clear All Diagram Data" only removes app data - your original JSON files are unaffected.
+All data stored in browser localStorage. "Clear All Diagram Data" only removes app data. Your original JSON files are unaffected.
