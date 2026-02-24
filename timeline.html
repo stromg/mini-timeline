@@ -508,6 +508,11 @@
             <div class="setting-label">Event horizon <span id="noteHorizonVal">60 days</span></div>
             <input type="range" id="slNoteHorizon" min="7" max="160" value="60" oninput="onNoteHorizon(this.value)">
         </div>
+        <div class="setting-row" style="border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px;">
+            <button onclick="clearData()" style="width: 100%; padding: 8px 12px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                Clear All Diagram Data
+            </button>
+        </div>
     </div>
 </div>
 
@@ -527,9 +532,13 @@
         <div class="dateAxis" id="dateAxis"></div>
     </div>
     <div id="emptyPlaceholder" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:#94a3b8; font-size:20px; pointer-events:none;">
-        <div style="font-size:48px; margin-bottom:20px;">📊</div>
-        <div>Drag & drop your JSON file here</div>
-        <div style="font-size:14px; margin-top:10px; opacity:0.7;">or use the hamburger menu to load data</div>
+        <div style="font-size:64px; margin-bottom:24px;">📊</div>
+        <div style="font-size: 24px; font-weight: 600; color: #475569; margin-bottom: 16px;">Ingen data laddad</div>
+        <div style="font-size: 18px; margin-bottom: 8px;">Drag & drop din JSON-fil här</div>
+        <div style="font-size:14px; margin-top:16px; opacity:0.7; max-width: 400px; line-height: 1.6;">
+            Eller använd hamburgermenyn (⚙️) för att ladda data.<br>
+            Vill du börja om från scratch? Tryck "Clear All Data" i menyn.
+        </div>
     </div>
 </div>
 
@@ -956,21 +965,39 @@ function buildTimeline() {
     }
     placeholder.style.display = "none";
 
+    // Track validation warnings
+    const validationWarnings = [];
+
     // ── Categorise ────────────────────────────────────────────────────────────
     // Schema: activity=name, type="area"|"note"|undefined
     // title  = {title:"..."} only → shown as header badge
+    // lane   = {lane:"name", title:"...", color:"..."} → lane definition
     // bar    = start+end
     // area   = start+end, type="area"  → background band
     // diamond= date only
     // note   = diamond with type="note" → shown in daysuntil box
-    const titleItem = items.find(i => i.title && !i.start && !i.end && !i.date);
+    const titleItem = items.find(i => i.title && !i.start && !i.end && !i.date && !i.lane);
+    
     const bars     = items.filter(i => i.start && i.end && i.type !== "area");
     const blocks   = items.filter(i => i.start && i.end && i.type === "area");
     const diamonds = items.filter(i => i.date && !i.start);
     boxItems       = diamonds.filter(i => i.highlight === true);
     
+    // Reset color index for consistent colors across lanes and bars
+    colorIndex = 0;
+    
+    // Lane definitions: { lane: "name", title: "Label", color: "green" }
+    // Parse first so lanes get colors 0, 1, 2... and bars continue from there
+    const laneDefinitions = new Map();
+    items.filter(i => i.lane && i.title && !i.start && !i.end && !i.date && !i.activity)
+        .forEach(laneDef => {
+            laneDefinitions.set(laneDef.lane, {
+                title: laneDef.title,
+                color: laneDef.color || getAutoColor()
+            });
+        });
+    
     // Auto-assign colors to bars without explicit color
-    colorIndex = 0;  // Reset for consistent colors
     bars.forEach(bar => {
         if (!bar.color) {
             bar.color = getAutoColor();
@@ -988,7 +1015,7 @@ function buildTimeline() {
     minDate = new Date(Math.min(...allDates));
     const maxDate = new Date(Math.max(...allDates));
     
-    // Simple lane packing: test lanes from top (0, 1, 2...) until bar fits
+    // Simple lane packing for bars (we'll separate colored/regular after snapping)
     bars.sort((a, b) => parseDate(a.start) - parseDate(b.start));
     
     // Track which bars are in each lane
@@ -1097,12 +1124,78 @@ function buildTimeline() {
             if (!snappedMs.has(matchedBar)) snappedMs.set(matchedBar, []);
             snappedMs.get(matchedBar).push(item);
         } else {
-            standaloneDs.push(item);
+            // Not snapped - check lane validity
+            if (item.lane) {
+                // Has lane attribute - validate it exists
+                if (!laneDefinitions.has(item.lane)) {
+                    const warning = `Diamond "${item.activity}" references non-existent lane "${item.lane}"`;
+                    console.warn(`⚠️ ${warning}. Rendering as standalone.`);
+                    validationWarnings.push(warning);
+                    standaloneDs.push(item);
+                }
+                // If valid lane, it stays for colored lane processing
+            } else {
+                // No lane attribute - standalone
+                standaloneDs.push(item);
+            }
         }
     });
 
+    // ── Separate colored lane items (AFTER snapping) ─────────────────────────
+    // Colored lanes contain:
+    //   1. Fristående diamonds (with lane attribute, not snapped)
+    //   2. Bars (with lane attribute) + their snapped diamonds
+    
+    const coloredLaneItems = [];
+    
+    // Add all bars with "lane" attribute (if lane definition exists)
+    bars.forEach(bar => {
+        if (bar.lane) {
+            if (laneDefinitions.has(bar.lane)) {
+                coloredLaneItems.push(bar);
+            } else {
+                const warning = `Bar "${bar.activity}" references non-existent lane "${bar.lane}"`;
+                console.warn(`⚠️ ${warning}. Rendering as regular bar.`);
+                validationWarnings.push(warning);
+                // Invalid lane - will be treated as regular bar (no lane attribute)
+            }
+        }
+    });
+    
+    // Add fristående diamonds with "lane" attribute
+    diamonds.forEach(diamond => {
+        if (!diamond.lane) return;
+        if (!laneDefinitions.has(diamond.lane)) return;
+        
+        // Check if this diamond is snapped
+        let isSnapped = false;
+        for (const [bar, snappedDiamonds] of snappedMs.entries()) {
+            if (snappedDiamonds.includes(diamond)) {
+                isSnapped = true;
+                break;
+            }
+        }
+        
+        // Only add if NOT snapped (snapped ones are handled via their parent bar)
+        if (!isSnapped) {
+            coloredLaneItems.push(diamond);
+        }
+    });
+    
+    const regularBars = bars.filter(b => !b.lane || !laneDefinitions.has(b.lane));
+    
+    // Group colored lane items by lane name
+    const coloredLaneGroups = {};
+    coloredLaneItems.forEach(item => {
+        const laneName = item.lane;
+        if (!coloredLaneGroups[laneName]) {
+            coloredLaneGroups[laneName] = [];
+        }
+        coloredLaneGroups[laneName].push(item);
+    });
+
     // ── Layout: compute Y positions ───────────────────────────────────────────
-    const dSingleH     = Math.round(fontSize * 2.8 + 24); // 18px icon + title + daysLeft + margin
+    const dSingleH     = Math.round(fontSize * 2.0 + 24); // Kompaktare standalone diamond lanes
     const diamondLaneH = dSingleH;  // Same height as standalone diamonds for consistency
     const compactDiamondH = Math.round(diamondLaneH * 0.65);  // Compact diamond lanes (65% height)
     const barTopPx     = Math.max(14, fontSize + 2);
@@ -1121,19 +1214,27 @@ function buildTimeline() {
         const txt = (item.activity || "").replace(/\n/g, " ");
         return Math.ceil(_ctx.measureText(txt).width) + 36; // 18px icon + 6px gap + 12px padding
     }
+    
+    // Helper: Collision detect diamonds into rows
+    function packDiamondsIntoRows(diamonds) {
+        const rowEnds = []; // rightmost px used per row
+        const itemRows = []; // assigned row per item
+        
+        diamonds.forEach(item => {
+            const x = Math.round(daysBetween(minDate, parseDate(item.date)) * pxPerDay);
+            const w = estimateW(item);
+            let r = 0;
+            while (r < rowEnds.length && x <= rowEnds[r] + 10) r++;
+            if (r === rowEnds.length) rowEnds.push(0);
+            rowEnds[r] = x + w;
+            itemRows.push(r);
+        });
+        
+        return { numRows: rowEnds.length || 0, rowAssignments: itemRows };
+    }
 
-    const rowEnds = []; // rightmost px used per row
-    const dsRows  = []; // assigned row per item
-    standaloneDs.forEach(item => {
-        const x = Math.round(daysBetween(minDate, parseDate(item.date)) * pxPerDay);
-        const w = estimateW(item);
-        let r = 0;
-        while (r < rowEnds.length && x <= rowEnds[r] + 10) r++;
-        if (r === rowEnds.length) rowEnds.push(0);
-        rowEnds[r] = x + w;
-        dsRows.push(r);
-    });
-    const numDsRows = rowEnds.length || 0;
+    // Pack standalone diamonds
+    const { numRows: numDsRows, rowAssignments: dsRows } = packDiamondsIntoRows(standaloneDs);
 
     // Place standalone diamond section FIRST (top)
     let cursor = 40;
@@ -1142,9 +1243,44 @@ function buildTimeline() {
         dRowTopY.push(cursor);
         cursor += dSingleH;
     }
-    if (numDsRows > 0) cursor += 4; // small gap before bars
+    if (numDsRows > 0) cursor += 4; // small gap before next section
+    
+    // Calculate Y positions for colored lanes (come after standalone diamonds)
+    const coloredLanesYMap = {};  // { "demos": yPos, "sprints": yPos }
+    const coloredLaneRowData = {};  // Store collision data for each lane
+    
+    Object.keys(coloredLaneGroups).forEach(laneName => {
+        coloredLanesYMap[laneName] = cursor;
+        
+        // Separate items by type
+        const laneFristaende = coloredLaneGroups[laneName].filter(item => item.date && !item.start);
+        const laneBars = coloredLaneGroups[laneName].filter(item => item.start && item.end);
+        
+        // Collision detect fristående diamonds (reuse logic!)
+        const { numRows: numFristRow, rowAssignments: fristRowAssign } = packDiamondsIntoRows(laneFristaende);
+        
+        // Check if ANY bar has snapped diamonds
+        const laneHasSnappedDiamonds = laneBars.some(bar => 
+            snappedMs.has(bar) && snappedMs.get(bar).length > 0
+        );
+        
+        // Store for rendering
+        coloredLaneRowData[laneName] = {
+            fristaendeDiamonds: laneFristaende,
+            numFristaendeRows: numFristRow,
+            fristRowAssignments: fristRowAssign,
+            bars: laneBars,
+            hasSnappedDiamonds: laneHasSnappedDiamonds
+        };
+        
+        // Add heights for each sub-section:
+        if (numFristRow > 0) cursor += numFristRow * compactDiamondH;  // Fristående diamond lanes
+        if (laneHasSnappedDiamonds) cursor += compactDiamondH;  // Snapped diamond lane
+        cursor += rowSpacing;  // Bar lane
+    });
+    if (Object.keys(coloredLaneGroups).length > 0) cursor += 4; // small gap before regular bars
 
-    // Calculate Y position for each lane
+    // Calculate Y position for each REGULAR bar lane
     const laneY = [];
     for (let i = 0; i < lanes.length; i++) {
         laneY.push(cursor);
@@ -1158,9 +1294,9 @@ function buildTimeline() {
         cursor += rowSpacing;
     }
     
-    // Map each bar to its lane's Y position
+    // Map each REGULAR bar to its lane's Y position
     const slotTopY = [];
-    bars.forEach(bar => {
+    regularBars.forEach(bar => {
         slotTopY.push(laneY[bar.laneNumber]);
     });
     
@@ -1255,8 +1391,143 @@ function buildTimeline() {
         dsLanes[rowIdx].appendChild(wrap);
     });
 
+    // ── Colored lanes (with "lane" attribute) ────────────────────────────────
+    // These come after standalone diamonds but before regular bars
+    Object.keys(coloredLaneGroups).forEach(laneName => {
+        const laneY = coloredLanesYMap[laneName];
+        const laneDef = laneDefinitions.get(laneName);
+        const laneColor = getColor(laneDef.color);
+        const rowData = coloredLaneRowData[laneName];
+        
+        const numFristRows = rowData.numFristaendeRows;
+        const hasSnappedDiamonds = rowData.hasSnappedDiamonds;
+        
+        // Calculate heights
+        let currentY = laneY;
+        const fristaendeH = numFristRows * compactDiamondH;
+        const snappedH = hasSnappedDiamonds ? compactDiamondH : 0;
+        const totalLaneHeight = fristaendeH + snappedH + rowSpacing;
+        
+        // Grid line at top of lane
+        const gh = document.createElement("div");
+        gh.className = "gridH";
+        gh.style.top = laneY + "px";
+        gh.style.background = laneColor;
+        gh.style.opacity = "0.3";
+        tl.appendChild(gh);
+        
+        // Colored background for entire lane
+        const laneBg = document.createElement("div");
+        laneBg.style.cssText = `
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: ${laneY}px;
+            height: ${totalLaneHeight}px;
+            background: ${laneColor};
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+            border-radius: 8px;
+        `;
+        tl.appendChild(laneBg);
+        
+        // Lane title in upper left corner
+        const laneTitle = document.createElement("div");
+        laneTitle.textContent = laneDef.title;
+        laneTitle.style.cssText = `
+            position: absolute;
+            left: 8px;
+            top: ${laneY + 4}px;
+            font-size: ${Math.round(fontSize * 0.85)}px;
+            font-weight: 600;
+            color: ${laneColor};
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 1;
+        `;
+        tl.appendChild(laneTitle);
+        
+        // 1. Render fristående diamonds with collision detection
+        if (numFristRows > 0) {
+            rowData.fristaendeDiamonds.forEach((diamond, idx) => {
+                const rowIdx = rowData.fristRowAssignments[idx];
+                const x = Math.round(daysBetween(minDate, parseDate(diamond.date)) * pxPerDay);
+                const wrap = makeDiamond(diamond, true);  // Use compact style
+                wrap.style.left = (x - 9) + "px";
+                const rowY = currentY + (rowIdx * compactDiamondH);
+                wrap.style.top = (rowY + Math.round((compactDiamondH - 26) / 2)) + "px";
+                tl.appendChild(wrap);
+            });
+            currentY += fristaendeH;
+        }
+        
+        // 2. & 3. Render bars (with optional snapped diamonds above)
+        rowData.bars.forEach(bar => {
+            const barHasSnapped = snappedMs.has(bar) && snappedMs.get(bar).length > 0;
+            const barStartY = currentY + (barHasSnapped ? compactDiamondH : 0);
+            
+            const barL = Math.round(daysBetween(minDate, parseDate(bar.start)) * pxPerDay);
+            const dur = Math.round(daysBetween(parseDate(bar.start), parseDate(bar.end)));
+            const barW = dur * pxPerDay;
+            const barH = Math.max(24, rowSpacing - barTopPx - 8);
+            
+            // Render snapped diamonds for this bar
+            if (barHasSnapped) {
+                snappedMs.get(bar).forEach(ms => {
+                    const x = Math.round(daysBetween(minDate, parseDate(ms.date)) * pxPerDay);
+                    const wrap = makeDiamond(ms, true);
+                    wrap.style.left = (x - 9) + "px";
+                    wrap.style.top = (currentY + Math.round((compactDiamondH - 26) / 2)) + "px";
+                    tl.appendChild(wrap);
+                });
+            }
+            
+            // Render bar
+            const barElem = document.createElement("div");
+            barElem.className = "bar";
+            barElem.style.left = barL + "px";
+            barElem.style.width = barW + "px";
+            barElem.style.top = (barStartY + barTopPx) + "px";
+            barElem.style.height = barH + "px";
+            if (bar.color) barElem.style.background = getColor(bar.color);
+            
+            if (bar.url) {
+                barElem.classList.add("clickable");
+                barElem.onclick = (e) => {
+                    e.stopPropagation();
+                    window.open(bar.url, '_blank');
+                };
+                barElem.title = "Click to open: " + bar.url;
+            }
+            
+            const dl = document.createElement("span");
+            dl.className = "barDays";
+            dl.style.fontSize = fontSize + "px";
+            dl.innerText = dur + " d";
+            barElem.appendChild(dl);
+            
+            const lbl = document.createElement("div");
+            lbl.className = "label";
+            lbl.innerHTML = bar.activity.replace(/\n/g, "<br>");
+            lbl.style.left = (barL + barW + 8) + "px";
+            lbl.style.top = (barStartY + barTopPx) + "px";
+            lbl.style.height = barH + "px";
+            lbl.style.display = "flex";
+            lbl.style.alignItems = "center";
+            lbl.style.fontSize = fontSize + "px";
+            lbl.style.whiteSpace = "nowrap";
+            lbl.style.color = "#1e293b";
+            lbl.style.position = "absolute";
+            
+            tl.appendChild(barElem);
+            tl.appendChild(lbl);
+        });
+    });
+
     // ── Bar slots ─────────────────────────────────────────────────────────────
-    bars.forEach((item, index) => {
+    // Regular bars (without "lane" attribute) come after colored lanes
+    regularBars.forEach((item, index) => {
         const slotY       = slotTopY[index];
         const hasDiamonds = snappedMs.has(item) && snappedMs.get(item).length > 0;
         const barLaneY    = slotY + (hasDiamonds ? compactDiamondH : 0);
@@ -1366,6 +1637,85 @@ function buildTimeline() {
     
     snapHint.style.opacity = "1";
     setTimeout(() => { snapHint.style.opacity = "0"; }, 4000);
+    
+    // Show validation warnings banner if there are any
+    showValidationWarnings(validationWarnings, laneDefinitions);
+}
+
+// ── Show validation warnings ────────────────────────────────────────────────────
+function showValidationWarnings(warnings, laneDefinitions) {
+    // Remove old warning banner if exists
+    const oldBanner = document.getElementById('validationWarnings');
+    if (oldBanner) oldBanner.remove();
+    
+    if (warnings.length === 0) return;
+    
+    // Create warning banner
+    const banner = document.createElement('div');
+    banner.id = 'validationWarnings';
+    banner.style.cssText = `
+        position: fixed;
+        top: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 8px;
+        padding: 12px 16px;
+        max-width: 600px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 1000;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        color: #92400e;
+    `;
+    
+    const availableLanes = Array.from(laneDefinitions.keys()).join(', ') || '(none defined)';
+    
+    banner.innerHTML = `
+        <div style="display: flex; align-items: start; gap: 8px;">
+            <div style="font-size: 20px; flex-shrink: 0;">⚠️</div>
+            <div style="flex: 1;">
+                <strong style="display: block; margin-bottom: 4px;">Varning! Lane-referenser som inte finns:</strong>
+                <ul style="margin: 4px 0; padding-left: 20px;">
+                    ${warnings.map(w => `<li>${w}</li>`).join('')}
+                </ul>
+                <div style="margin-top: 8px; font-size: 12px; opacity: 0.9;">
+                    Tillgängliga lanes: <strong>${availableLanes}</strong>
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; background: #fde68a; padding: 6px 8px; border-radius: 4px;">
+                    💡 <strong>Fixa din JSON-fil</strong> och ladda om för att lösa detta!
+                </div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" 
+                    style="background: none; border: none; font-size: 20px; cursor: pointer; 
+                           padding: 0; line-height: 1; color: #92400e; margin-left: 8px;">×</button>
+        </div>
+    `;
+    
+    document.body.appendChild(banner);
+    
+    // Auto-hide after 15 seconds (längre tid så användare hinner läsa)
+    setTimeout(() => {
+        banner.style.transition = 'opacity 0.3s';
+        banner.style.opacity = '0';
+        setTimeout(() => banner.remove(), 300);
+    }, 15000);
+}
+
+// ── Clear all data ──────────────────────────────────────────────────────────────
+function clearData() {
+    if (confirm('Är du säker på att du vill radera all data? Detta går inte att ångra.')) {
+        localStorage.removeItem(STORAGE_KEY);
+        items = [];
+        console.log('[CLEAR] All data cleared');
+        
+        // Remove warning banner if it exists
+        const warningBanner = document.getElementById('validationWarnings');
+        if (warningBanner) warningBanner.remove();
+        
+        buildTimeline();  // Rebuild to show placeholder
+    }
 }
 
 // ── Diamond element factory ────────────────────────────────────────────────────

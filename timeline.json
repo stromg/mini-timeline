@@ -6,12 +6,16 @@
   { "activity": "Frontend",          "start": "2026-02-16", "end": "2026-03-27" },
   { "activity": "Test & QA",         "start": "2026-03-16", "end": "2026-04-10" },
   { "activity": "Driftsättning",     "start": "2026-04-06", "end": "2026-04-17"},
-   { "activity": "Kickoff" ,          "date": "2026-01-05" },
+  { "activity": "Kickoff" ,          "date": "2026-01-05" , "lane": "green"},
+  { "activity": "Demo 1" ,          "date": "2026-01-20" , "lane": "test"},
+  { "activity": "Demo 2" ,          "date": "2026-02-09" , "lane": "test"},
+  { "activity": "Demo 3" ,          "date": "2026-03-09" , "lane": "test"},
   { "activity": "Design\ngodkänd",   "date": "2026-02-13"  },
   { "activity": "Beta",              "date": "2026-03-20" },
   { "activity": "Release\nv1.0",     "date": "2026-04-17" },
   { "activity": "Möte",  "date": "2026-03-03", "color": "black", "highlight": true ,  "url": "https://meet.google.com/xyz" },
   { "activity": "Event",      "date": "2026-04-02", "color": "black", "highlight": true },
   { "activity": "Teamlunch",    "date": "2026-02-27", "color": "black", "highlight": true},
-  { "activity": "Vacation",    "start": "2026-04-06", "end": "2026-04-29", "type": "area", "color": "lightblue"}
+  { "lane": "test" ,"title": "Demos Q1", "color": "lightblue" },
+  { "activity": "Support",    "start": "2026-03-30", "end": "2026-04-27", "type": "area", "color": "lightblue" }
 ]
