@@ -505,8 +505,8 @@
             <input type="range" id="slFs" min="14" max="25" value="14" oninput="onFs(this.value)">
         </div>
         <div class="setting-row">
-            <div class="setting-label">Event horizon <span id="noteHorizonVal">60 days</span></div>
-            <input type="range" id="slNoteHorizon" min="7" max="160" value="60" oninput="onNoteHorizon(this.value)">
+            <div class="setting-label">Days ahead <span id="noteHorizonVal">60 days</span></div>
+            <input type="range" id="slNoteHorizon" min="0" max="160" value="60" oninput="onNoteHorizon(this.value)">
         </div>
         <div class="setting-row" style="border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px;">
             <button onclick="clearData()" style="width: 100%; padding: 8px 12px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
@@ -673,7 +673,8 @@ function onFs(v) {
 
 function onNoteHorizon(v) {
     noteHorizon = +v;
-    document.getElementById("noteHorizonVal").textContent = v + " days";
+    const label = v == 0 ? "Off" : v + " days";
+    document.getElementById("noteHorizonVal").textContent = label;
     saveSettings();
     updateActivityBox();
 }
@@ -817,7 +818,8 @@ function updateMilestoneLabels() {
 }
 
 function updateActivityBox() {
-    if (!boxItems.length) { 
+    // Hide box if noteHorizon is 0 (Off) or no items
+    if (noteHorizon === 0 || !boxItems.length) { 
         activityBox.style.opacity = "0"; 
         activityBox.style.pointerEvents = "none";
         return; 
@@ -1710,11 +1712,26 @@ function clearData() {
         items = [];
         console.log('[CLEAR] All data cleared');
         
-        // Remove warning banner if it exists
+        // Clear ALL UI elements before rebuild
+        const activityBox = document.getElementById('activityBox');
+        if (activityBox) activityBox.innerHTML = '';
+        
         const warningBanner = document.getElementById('validationWarnings');
         if (warningBanner) warningBanner.remove();
         
+        const timeline = document.getElementById('timeline');
+        if (timeline) {
+            // Remove all children except dateAxis
+            Array.from(timeline.children).forEach(child => {
+                if (child.id !== 'dateAxis') {
+                    child.remove();
+                }
+            });
+        }
+        
         buildTimeline();  // Rebuild to show placeholder
+        
+        console.log('[CLEAR] All UI elements cleared');
     }
 }
 

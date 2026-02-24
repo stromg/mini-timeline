@@ -1,240 +1,120 @@
 # Mini-Timeline
 
-En interaktiv tidslinje för projektplanering. Perfekt för team-skärmar.
+A not-so-small Gantt-type interactive timeline for project visualization, perfect for team dashboard TVs etc.
 
 <img src="screenshot.png" width="800" alt="Mini-Timeline Timeline">
 
-## Snabbstart
+# Quick Start
 
-1. Öppna `timeline.html` i din webbläsare
-2. Drag-drop `timeline.json` på sidan
-3. Navigera med piltangenterna (← →)
-4. Tryck valfri annan tangent för att hoppa till TODAY
-
-Data sparas automatiskt i localStorage.
-
-## Features
-
-- Drag-drop JSON för att ladda data
-- Keyboard navigation (piltangenter)
-- Auto-färger (6 färger roterar automatiskt)
-- Milstolpar, aktiviteter, och area blocks
-- Sparas i localStorage - funkar efter reload
-- Klickbara länkar på events
-- Fullscreen-läge (tryck ESC för att avsluta)
+1. Open `timeline.html` in browser
+2. Drag & drop a JSON file, or
+3. Use hamburger menu (⚙️) → Clear All Diagram Data to start fresh
 
 ## JSON Format
-
-Se `timeline.json` i repot för ett komplett exempel. Din projektplan definieras i en JSON-array med olika objekt:
-
-### Titel
-
-```json
-{ "title": "2026 Work Planning" }
-```
-
-Visas som stort rubrik uppe till vänster.
-
-### Aktiviteter (staplar)
-
-```json
-{
-  "activity": "Backend",
-  "start": "2026-02-02",
-  "end": "2026-03-13",
-  "color": "blue",
-  "url": "https://jira.company.com/PROJ-123"
-}
-```
-
-- `activity`: Namnet på aktiviteten
-- `start` och `end`: Datum i formatet YYYY-MM-DD
-- `color`: Färgnamn (se lista nedan)
-- `url`: Valfri länk (klicka på stapeln för att öppna)
-
-### Milestones (diamanter)
-
-```json
-{
-  "activity": "Kickoff",
-  "date": "2026-01-05",
-  "url": "https://meet.google.com/abc-defg"
-}
-```
-
-- `date`: Ett enskilt datum
-- Visar en diamant-ikon på tidslinjen
-- Kan också ha färg och url
-
-### Händelser (visas i notis-boxen)
-
-```json
-{
-  "activity": "Teamlunch",
-  "date": "2026-02-27",
-  "highlight": true
-}
-```
-
-- `highlight: true`: Gör att händelsen visas i den gula activity-boxen
-- Activity-boxen visar händelser inom din valda "event horizon" (standard 60 dagar)
-
-### Bakgrundsområden
-
-```json
-{
-  "activity": "Vacation",
-  "start": "2026-04-06",
-  "end": "2026-04-29",
-  "type": "area",
-  "color": "lightblue"
-}
-```
-
-- `type: "area"`: Skapar ett genomskinligt färgat område i bakgrunden
-- Användbart för semester, helgdagar, deadlines etc
-
-## Färger
-
-### Auto-färger
-
-**Aktiviteter (bars) får automatiskt snygga färger om du INTE anger `color`!**
-
-Mini-Timeline använder en roterande färgpool med 6 färger:
-
-1. **Indigo** (#6366f1) - indigo-blå
-2. **Purple** (#8b5cf6) - lila
-3. **Blue** (#3b82f6) - blå
-4. **Sky** (#0ea5e9) - cyan/ljusblå
-5. **Orange** (#f97316) - orange
-6. **Green** (#22c55e) - grön
-
-Färgerna roterar automatiskt. Du behöver alltså inte ange `color` för aktiviteter!
-
-### Manuella färger
-
-Om du vill kan du fortfarande ange färger manuellt:
-
-**Blues**: `lightblue`, `skyblue`, `blue`, `darkblue`, `indigo`
-**Purples**: `purple`, `violet`
-**Greens**: `green`, `lightgreen`, `darkgreen`
-**Yellows/Oranges**: `yellow`, `orange`, `amber`
-**Reds/Pinks**: `red`, `pink`
-**Neutrals**: `gray`, `slate`, `black`
-**Cyans/Teals**: `cyan`, `teal`
-
-Du kan också använda hex-koder direkt, t.ex. `"color": "#3b82f6"`
-
-## Datum-format
-
-Mini-Timeline stödjer två format:
-
-**Standard datum**: `"2026-03-15"`
-
-**ISO-veckor**: `"2026-W12"` (vecka 12, 2026)
-
-## Komplett exempel
 
 ```json
 [
   { "title": "2026 Work Planning" },
-  { 
-    "activity": "Planering",
-    "start": "2026-01-05",
-    "end": "2026-01-23"
-  },
-  { 
-    "activity": "Design & Prototyp",
-    "start": "2026-01-19",
-    "end": "2026-02-13"
-  },
-  { 
-    "activity": "Backend",
-    "start": "2026-02-02",
-    "end": "2026-03-13"
-  },
-  { 
-    "activity": "Kickoff",
-    "date": "2026-01-05",
-    "url": "https://meet.google.com/abc-defg"
-  },
-  { 
-    "activity": "Beta",
-    "date": "2026-03-20",
-    "url": "https://beta.example.com"
-  },
-  { 
-    "activity": "Teamlunch",
-    "date": "2026-02-27",
-    "highlight": true
-  },
-  { 
-    "activity": "Vacation",
-    "start": "2026-04-06",
-    "end": "2026-04-29",
-    "type": "area",
-    "color": "lightblue"
-  }
+  { "activity": "Planering", "start": "2026-01-05", "end": "2026-01-23" },
+  { "activity": "Design & Prototyp", "start": "2026-01-19", "end": "2026-02-13" },
+  { "activity": "Backend", "start": "2026-02-02", "end": "2026-03-13" },
+  { "activity": "Frontend", "start": "2026-02-16", "end": "2026-03-27" },
+  { "activity": "Test & QA", "start": "2026-03-16", "end": "2026-04-10" },
+  { "activity": "Driftsättning", "start": "2026-04-06", "end": "2026-04-17"},
+  { "activity": "Kickoff", "date": "2026-01-05", "lane": "green"},
+  { "activity": "Demo 1", "date": "2026-01-20", "lane": "test"},
+  { "activity": "Demo 2", "date": "2026-02-09", "lane": "test"},
+  { "activity": "Demo 3", "date": "2026-03-09", "lane": "test"},
+  { "activity": "Design\ngodkänd", "date": "2026-02-13" },
+  { "activity": "Beta", "date": "2026-03-20" },
+  { "activity": "Release\nv1.0", "date": "2026-04-17" },
+  { "activity": "Möte", "date": "2026-03-03", "color": "black", "highlight": true, "url": "https://meet.google.com/xyz" },
+  { "activity": "Event", "date": "2026-04-02", "color": "black", "highlight": true },
+  { "activity": "Teamlunch", "date": "2026-02-27", "color": "black", "highlight": true},
+  { "lane": "test", "title": "Demos Q1", "color": "lightblue" },
+  { "activity": "Support", "start": "2026-03-30", "end": "2026-04-27", "type": "area", "color": "lightblue" }
 ]
 ```
 
-## Inställningar
+## Item Types
 
-Klicka på hamburger-menyn uppe till höger för att justera:
+**Bar** (activity with duration):
+```json
+{ "activity": "Backend", "start": "2026-02-02", "end": "2026-03-13" }
+```
 
-- **Zoom**: Hur många pixlar per dag (6-60 px)
-- **Row spacing**: Avstånd mellan aktivitetsrader (40-160 px)
-- **Font size**: Textstorlek för hela applikationen (14-25 px)
-- **Event horizon**: Hur långt fram i tiden händelser ska visas (7-160 dagar)
+**Diamond** (milestone):
+```json
+{ "activity": "Release v1.0", "date": "2026-04-17" }
+```
 
-Alla inställningar sparas automatiskt i webbläsaren.
+**Area** (background band):
+```json
+{ "activity": "Support", "start": "2026-03-30", "end": "2026-04-27", "type": "area", "color": "lightblue" }
+```
 
-### Smart Lane Packing
+**Highlight** (notification box):
+```json
+{ "activity": "Möte", "date": "2026-03-03", "color": "black", "highlight": true, "url": "https://meet.google.com/xyz" }
+```
 
-Mini-Timeline använder en **enkel top-down lane-packing** algoritm:
+## Colored Lanes
 
-**Hur det fungerar:**
-1. Sorterar aktiviteter efter starttid (kronologisk ordning)
-2. För varje aktivitet:
-   - Testa lane 0, 1, 2... från toppen
-   - Placera aktiviteten i första lane där den INTE överlappar tidsmässigt
-   - Om ingen lane passar: skapa ny lane längst ner
-3. Aktiviteter i samma lane delar Y-position (visuellt på samma rad)
+Group related items in dedicated colored lanes:
 
-**Exempel:**
-- **Planering** (jan 5-23) → Lane 0
-- **Design** (jan 19-feb 13) → Lane 1 (överlappar Planering)
-- **Backend** (feb 2-mar 16) → Lane 0 (Planering slutade jan 23 - ingen överlapp!)
-- **Driftsättning** (apr 6-17) → Lane 0 (fortfarande plats!)
+```json
+// 1. Define lane
+{ "lane": "demos", "title": "Monthly Demos", "color": "purple" }
 
-**Resultat:** Automatiskt tätt packade rader utan tomma mellanrum!
+// 2. Reference lane in items
+{ "activity": "Demo 1", "date": "2026-01-15", "lane": "demos" }
+{ "activity": "Planering", "start": "2026-01-05", "end": "2026-01-23", "lane": "demos" }
+```
 
-**Diamond lanes:** Bara 65% av normal höjd för kompaktare layout.
+**Lane structure:** Each colored lane contains up to 3 sections:
+1. Fristående diamonds (not snapped to bars)
+2. Snapped diamonds (diamonds matching bar start dates)
+3. Bars
 
-## Tangentbords-genvägar
+**Validation:** Invalid lane references fallback to standalone/regular rendering with warning banner.
 
-- **Vänsterpil**: Scrolla bakåt en dag
-- **Högerpil**: Scrolla framåt en dag
-- **Håll inne pil**: Snabb scrollning
-- **Valfri annan tangent**: Återgå till idag
-- **Dubbelklick**: Återgå till idag
-- **ESC**: Avsluta fullscreen
+## Colors
 
-## Tips för team-skärmar
+Note: You dont have to set a color, they'll be set for you via a small pool of nice colors. The colors below are just for reference if you want to set one by your self via the color attribute.
 
-1. Kör webbläsaren i fullscreen-läge (F11 i de flesta webbläsare)
-2. Inaktivera skärmsläckare
-3. Lägg JSON-filen på en nätverksdel som alla kan nå
-4. Uppdatera JSON-filen när projektet ändras
-5. Släpp in filen på skärmen för att uppdatera tidslinjen
+| Swatch | Namn | Hex |
+|--------|------|-----|
+| <span style="display:inline-block;width:20px;height:20px;background:#ef4444;border:1px solid #ccc"></span> | red | `#ef4444` |
+| <span style="display:inline-block;width:20px;height:20px;background:#ec4899;border:1px solid #ccc"></span> | pink | `#ec4899` |
+| <span style="display:inline-block;width:20px;height:20px;background:#f59e0b;border:1px solid #ccc"></span> | orange | `#f59e0b` |
+| <span style="display:inline-block;width:20px;height:20px;background:#fbbf24;border:1px solid #ccc"></span> | yellow | `#fbbf24` |
+| <span style="display:inline-block;width:20px;height:20px;background:#10b981;border:1px solid #ccc"></span> | green | `#10b981` |
+| <span style="display:inline-block;width:20px;height:20px;background:#06b6d4;border:1px solid #ccc"></span> | cyan | `#06b6d4` |
+| <span style="display:inline-block;width:20px;height:20px;background:#0ea5e9;border:1px solid #ccc"></span> | sky | `#0ea5e9` |
+| <span style="display:inline-block;width:20px;height:20px;background:#3b82f6;border:1px solid #ccc"></span> | blue | `#3b82f6` |
+| <span style="display:inline-block;width:20px;height:20px;background:#6366f1;border:1px solid #ccc"></span> | indigo | `#6366f1` |
+| <span style="display:inline-block;width:20px;height:20px;background:#8b5cf6;border:1px solid #ccc"></span> | purple | `#8b5cf6` |
+| <span style="display:inline-block;width:20px;height:20px;background:#6b7280;border:1px solid #ccc"></span> | gray | `#6b7280` |
+| <span style="display:inline-block;width:20px;height:20px;background:#000000;border:1px solid #ccc"></span> | black | `#000000` |
 
-## Tekniska detaljer
+## Settings (Menu)
 
-- Ren vanilla JavaScript, inga dependencies
-- All data lagras i localStorage i webbläsaren
-- Fungerar offline efter första laddningen
-- Kompatibel med alla moderna webbläsare
+- **Zoom** - Pixels per day
+- **Row spacing** - Vertical spacing between items
+- **Font size** - Text size
+- **Days ahead** - Notification box range (0 = Off)
+- **Clear All Diagram Data** - Reset to empty state
 
-## Licens
+## Features
 
-Fri att använda och modifiera.
+- **Auto-save** - Data persists in localStorage
+- **Collision detection** - Diamonds auto-pack into multiple rows
+- **Snapping** - Diamonds on bar start dates attach above bar
+- **Drag & drop** - Load JSON files
+- **Pan & scroll** - Arrow keys to navigate, any other key returns to today
+- **Auto-colors** - Items without explicit colors get assigned from palette
+- **Line breaks** - Use `\n` in activity names
+
+## Data Storage
+
+All data stored in browser localStorage. "Clear All Diagram Data" only removes app data - your original JSON files are unaffected.
